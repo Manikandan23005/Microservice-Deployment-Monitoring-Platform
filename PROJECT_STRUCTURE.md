@@ -1,6 +1,6 @@
 # Project Structure
 
-This document details the folder structure of the **DevOps Nexus** repository, explaining the purpose of each directory and guiding new developers on where code should be added.
+This document details the folder structure of the **DevOps Nexus** repository, explaining the purpose of each directory and guiding developers.
 
 ---
 
@@ -8,51 +8,41 @@ This document details the folder structure of the **DevOps Nexus** repository, e
 
 ```
 DevOps-Nexus/
-├── .github/
-│   └── workflows/          # GitHub Actions pipeline definition (ci.yml)
+├── platform/              # Core Unified DevOps Platform
+│   ├── frontend/          # React + Vite + TypeScript UI Client Codebase
+│   └── backend/           # FastAPI Orchestrator API Backend Codebase
+│       └── app/
+│           ├── api/       # HTTP request controllers
+│           ├── services/  # Kubernetes, ArgoCD, Prometheus integrations
+│           ├── models/    # Pydantic data validation schemas
+│           ├── utils/     # Shared logs and helper utilities
+│           └── config/    # Global settings loader
+├── applications/          # The microservices under deployment (auth, orders, etc.)
 ├── docs/                  # Detailed system architecture guides and manuals
-├── applications/          # The microservices under development
-│   ├── frontend/          # Application web frontend
-│   ├── gateway/           # Application reverse proxy / gateway routing
-│   ├── auth/              # Authentication and security microservice
-│   ├── users/             # User profiles management service
-│   ├── products/          # Catalog and inventory service
-│   ├── orders/            # Order placement and state tracking service
-│   ├── payment/           # Processing payments gateway stub
-│   └── notification/      # E-mail/SMS dispatch microservice
-├── docker/                # Local runner configuration maps (e.g. Compose overrides)
-├── helm/                  # Parametrizing multi-environment templates via Helm
 ├── kubernetes/            # Core declarative YAML templates (stubs)
+├── helm/                  # Parametrizing multi-environment templates via Helm
 ├── gitops/
 │   └── argocd/            # Environment application templates (dev, qa, stage, prod)
-├── monitoring/            # Configuration stubs for Grafana/Prometheus logs & metrics
-│   ├── prometheus/
-│   ├── grafana/
-│   ├── loki/
-│   └── alertmanager/
-├── dashboard/             # Developer IDP dashboard interface codebases
-│   ├── frontend/          # IDP web app client code
-│   └── backend/           # IDP controller API code
-├── ai/                    # Autonomous triage module architectures and stubs
+├── monitoring/            # Configuration stubs for Grafana/Prometheus/Loki/Alertmanager
+├── ai/                    # AI incident analyzer model designs
 ├── scripts/               # Operation bash tools (setup.sh, rollback.sh, etc.)
-└── assets/                # Design assets and logos
+├── assets/                # Design assets and logos
+├── pyproject.toml         # Poetry package definition
+├── Dockerfile             # Multi-stage platform Dockerfile
+└── docker-compose.yml     # Local orchestration stack
 ```
 
 ---
 
 ## 🛠️ Components Breakdown
 
-### 1. Applications (`/applications`)
-Every folder here holds a standalone microservice with independent deployment lifecycles. They use the `.env.example` configurations to map dependencies.
+### 1. Platform (`/platform`)
+The core DevOps Nexus application itself.
+* **Frontend:** A responsive Single Page Application (SPA) built using React, Vite, and TypeScript.
+* **Backend:** A highly scalable FastAPI service managed with **Poetry**. Exposes API endpoints for deployments, log streaming, pod lookups, and AI post-mortem generation.
 
-### 2. Infrastructure Delivery (`/kubernetes`, `/helm`, `/gitops`)
-* **Kubernetes:** Raw templates defining deployments, roles, networks, and auto-scalers.
-* **Helm:** Package management layer to inject environment variables dynamically.
-* **GitOps:** Continuous Delivery target states monitored by ArgoCD engines.
+### 2. Applications (`/applications`)
+Simulates user applications (such as an e-commerce platform with services like `auth`, `payment`, `notification`). These are packaged into containers and deployed to Kubernetes.
 
-### 3. Monitoring Stack (`/monitoring`)
-Stores configurations for dashboards and metrics:
-* `/prometheus` for scrape targets and job configurations.
-* `/grafana` for dashboards files.
-* `/loki` for log streaming properties.
-* `/alertmanager` for alerting routes and Webhook parameters.
+### 3. Infrastructure Delivery (`/kubernetes`, `/helm`, `/gitops`)
+Defines how applications are packaged (Helm), declared (Kubernetes raw templates), and synchronized to cluster namespaces (ArgoCD Application models).

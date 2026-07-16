@@ -4,38 +4,36 @@ This document outlines the high-level roadmap and feature plans for **DevOps Nex
 
 ---
 
-## 📅 Phase 1: Repository Setup & Skeleton (v0.1.0) - CURRENT
+## 📅 Phase 1: Repository Setup & Skeleton (v0.1.0) - DONE
 * [x] **Folder Structure:** Generate standard folder hierarchy for applications, infrastructure, and monitoring.
 * [x] **Documentation Structure:** Build initial 10-chapter documentation architecture in `docs/`.
 * [x] **Stub Microservices:** Stub configurations, Dockers, and directories for core e-commerce apps.
-* [x] **Scaffold Shell Scripts:** Add basic utility controls (`setup.sh`, `deploy.sh`, etc.).
-* [x] **GitHub Pipelines:** Formulate `ci.yml` outlining the complete integration check chain.
 
 ---
 
-## 🛠️ Phase 2: Local Developer Sandbox (v0.2.0)
-* [ ] **Docker Compose Orchestration:** Run all 8 services locally in a single docker-compose stack.
-* [ ] **Local Kubernetes Cluster Support:** Support sandbox execution using Minikube or Kind.
-* [ ] **Base Observability Integration:** Collect telemetry metrics from the local services into Prometheus.
-* [ ] **Grafana Dashboard Design:** Basic dashboard layouts showing CPU, memory, and network throughput of microservices.
+## 🛠️ Phase 2: Unified Platform Restructuring (v0.2.0) - CURRENT
+* [x] **Reorganize Directories:** Rename `dashboard/` to `platform/` containing frontend client and backend orchestrator stubs.
+* [x] **Configure Package Manager:** Build root `pyproject.toml` managing FastAPI dependencies via Poetry.
+* [x] **Root Orchestration:** Add root Dockerfile and `docker-compose.yml` to boot platform client and services side-by-side.
+* [x] **Update Documentation:** Re-align architecture guides to represent unified container models.
 
 ---
 
-## ⚙️ Phase 3: Declarative GitOps Integration (v0.3.0)
-* [ ] **Helm Chart Parametrization:** Complete templates for application services.
-* [ ] **ArgoCD Deployments:** Deploy `dev`, `qa`, `stage`, and `prod` configurations using local ArgoCD.
-* [ ] **Automated Promotions:** Automate GitOps config modification in pipeline runs upon successful CI.
+## ⚙️ Phase 3: Platform Backend Integrations (v0.3.0)
+* [ ] **Kubernetes client setup:** Implement app/services/k8s_client.py querying active namespace pod events.
+* [ ] **Prometheus Metrics Scraper:** Build connectors gathering system performance stats.
+* [ ] **ArgoCD Sync Monitors:** Query sync controllers via REST APIs.
 
 ---
 
-## 🧠 Phase 4: Observability and Logging (v0.4.0)
-* [ ] **Loki Configuration:** Stream Docker/Kubernetes container logs to Loki backend.
-* [ ] **Alertmanager Alert Rules:** Define warning states (high latency, crash loops, memory leak alerts).
-* [ ] **Distributed Tracing:** Add OpenTelemetry stubs to application codebases.
+## 🧠 Phase 4: React UI Portal Interface (v0.4.0)
+* [ ] **Vite Client Scaffolding:** Build interface layouts using TypeScript and React.
+* [ ] **Telemetry Visualizations:** Implement charts displaying performance stats.
+* [ ] **Integrated Terminal Panel:** Display container logs dynamically.
 
 ---
 
-## 🤖 Phase 5: AI Incident Analysis (v0.5.0+)
-* [ ] **Log Parsing Pipeline:** Extract anomalous error patterns from Loki log streams.
-* [ ] **RAG Engine implementation:** Feed Kubernetes resource errors and historical resolutions to local LLM context.
-* [ ] **Incident Analysis Dashboard:** Provide root-cause diagnostics within the Nexus portal UI.
+## 🤖 Phase 5: AI Diagnostics Engine (v0.5.0+)
+* [ ] **AI Webhook Receivers:** Set up alerts parsing hooks in the FastAPI platform.
+* [ ] **Pluggable LLM Modules:** Connect backend services to local Ollama containers and OpenAI APIs.
+* [ ] **RAG resolution playbooks:** Index cluster incident patterns for automated triage recommendations.

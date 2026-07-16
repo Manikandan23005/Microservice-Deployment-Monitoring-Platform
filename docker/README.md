@@ -1,13 +1,11 @@
 # Docker Orchestration
 
 ## Overview
-This directory contains configurations to spin up the DevOps Nexus microservice topology locally using Docker Compose.
-
-## Structure
-* `docker-compose.yml`: Local orchestrator declaration mapping ports and service dependencies.
+Docker Compose configurations have been promoted to the root folder to simplify multi-container startup commands.
 
 ## Usage
-To spin up all application services locally:
+Refer to the root [docker-compose.yml](file:///home/satoru/Projects/Microservice-Deployment-Monitoring-Platform/docker-compose.yml) and run:
 ```bash
 docker compose up -d
 ```
+

@@ -1,29 +1,27 @@
 # Installation Guide
 
 ## Overview
-This document guides administrators and developers through installing the core components of DevOps Nexus.
+This document guides administrators and developers through installing the core components of the DevOps Nexus platform.
 
 ## Goals
-- Detail multi-environment installation strategies (Local, Staging, Production).
-- Walk through namespace creation and base service configuration bindings.
-- Establish values overrides schema validation patterns.
+- Detail multi-environment platform installation strategies (Local Docker Compose, Staging, and Production Kubernetes).
+- Establish value override configurations for Poetry dependency structures.
 
 ## Implementation Plan
 1. **Local Compose Sandbox Installation:**
-   - Run Docker Compose to boot applications and monitoring skeletons side-by-side.
-   - Run `scripts/setup.sh` to populate mock credentials and database directories.
-2. **Kubernetes Manual Installation:**
-   - Execute `kubectl apply -f kubernetes/namespace.yaml` to define target spaces.
-   - Deploy configurations (`configmap.yaml` and `secret.example.yaml`).
-   - Run `helm install devops-nexus ./helm --values ./helm/values-dev.yaml`.
-3. **ArgoCD Declarative Installation:**
-   - Install the ArgoCD Custom Resource Definitions (CRDs).
-   - Apply environment Application manifests under `gitops/argocd/`.
+   - Copy `.env.example` to `.env` in the root workspace.
+   - Run `docker compose up --build -d` to spin up React UI, FastAPI, Redis cache, and Ollama models.
+2. **Local Python Poetry Installation (Development):**
+   - Run `poetry install` in the root workspace directory.
+   - Boot uvicorn using `poetry run uvicorn app.main:app --reload` on port 8000.
+3. **Kubernetes Platform Installation:**
+   - Package the backend using the root `Dockerfile`.
+   - Deploy values configurations using Helm templates.
 
 ## Future Work
-* **SSL/TLS Certificates Integration:** Introduce cert-manager for automatic Let's Encrypt certificates.
-* **Database migrations pipeline:** Integrate database migration jobs prior to starting service deployments.
+* **Automatic Database Migrations:** Integrate automatic migrations via Alembic inside the FastAPI startup events context.
+* **Pluggable Local LLM Models script:** Build automation scripts to pull Ollama models (e.g. `llama3`) during container initialization.
 
 ## References
-* [ArgoCD Getting Started](https://argo-cd.readthedocs.io/en/stable/getting_started/)
-* [Kubernetes Namespaces Guide](https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/)
+* [Poetry Package Manager](https://python-poetry.org/)
+* [FastAPI Deployment Guide](https://fastapi.tiangolo.com/deployment/)

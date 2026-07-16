@@ -1,72 +1,56 @@
 # Installation Guide
 
-This document describes how to set up, configure, and install the **DevOps Nexus** platform skeleton.
+This document describes how to set up, configure, and run the **DevOps Nexus** platform.
 
 ---
 
 ## 📋 Prerequisites
 
-Before starting, ensure you have the following CLI utilities installed:
-* **Docker Engine** (v20.10+) or Docker Desktop
-* **Minikube** (v1.30+) or **Kind** for local Kubernetes simulation
-* **kubectl** (v1.28+) configured to communicate with your cluster
-* **Helm** (v3.0+) for package deployments
-* **Git** for source-control management
-
-See [01-Prerequisites.md](docs/01-Prerequisites.md) for direct installation instructions per OS.
+Before starting, ensure you have the following installed on your machine:
+* **Docker Engine** (v24.0+) & Docker Compose
+* **Python** (v3.11) & **Poetry** (if running the platform backend locally without containers)
+* **kubectl** & **Helm** (for deployment tasks targetable by the platform)
 
 ---
 
-## 🚀 Local Developer Sandbox Setup
+## 🚀 Running the Platform via Docker Compose
 
-### Step 1: Clone the Project
+The easiest way to initialize DevOps Nexus locally is via Docker Compose. This starts the React frontend, FastAPI backend, a Redis cache, and a local Ollama AI model service.
+
+### Step 1: Copy Environment Template
 ```bash
-git clone https://github.com/Manikandan23005/Microservice-Deployment-Monitoring-Platform.git
-cd Microservice-Deployment-Monitoring-Platform
+cp .env.example .env
+```
+Open `.env` and fill in API keys if you plan to use remote services (like OpenAI/Groq). By default, local Ollama is selected.
+
+### Step 2: Start Containers
+```bash
+docker compose up --build -d
 ```
 
-### Step 2: Set Executable Permissions on Utility Scripts
-```bash
-chmod +x scripts/*.sh
-```
-
-### Step 3: Run the Initialization Helper
-The `setup.sh` script installs base namespace records, local dummy secrets, and directories:
-```bash
-./scripts/setup.sh
-```
+### Step 3: Access Platform Portals
+* **FastAPI Backend Swagger Docs:** [http://localhost:8000/docs](http://localhost:8000/docs)
+* **React Dashboard Interface:** [http://localhost:3000](http://localhost:3000)
 
 ---
 
-## ☸️ Deploying to Kubernetes
+## 🐍 Running the Platform Backend Locally (Optional)
 
-To deploy the template skeleton onto your cluster:
+If you prefer to run the FastAPI server directly on your host machine for development:
 
-### Step 1: Create Namespace Structures
+### Step 1: Install Poetry Dependencies
 ```bash
-kubectl apply -f kubernetes/namespace.yaml
+# Install packages defined in pyproject.toml
+poetry install
 ```
 
-### Step 2: Deploy Infrastructure Secret and Config templates
-Ensure you fill in your local keys in the template files beforehand:
+### Step 2: Activate Environment
 ```bash
-kubectl apply -f kubernetes/configmap.yaml
-kubectl apply -f kubernetes/secret.example.yaml
+poetry shell
 ```
 
-### Step 3: Deploy Helm Chart Packages
-Navigate to the Helm folder and dry-run/install templates:
+### Step 3: Run FastAPI Server
 ```bash
-# Verify Helm template generation
-helm template devops-nexus ./helm --values ./helm/values-dev.yaml
-
-# Install the application
-helm install devops-nexus ./helm --namespace devops-nexus --values ./helm/values-dev.yaml
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
-
-### Step 4: Configure ArgoCD Application Syncs
-Apply ArgoCD application wrappers to monitor the environment configurations:
-```bash
-kubectl apply -f gitops/argocd/dev/application.yaml
-```
-Refer to [02-Installation.md](docs/02-Installation.md) for production environment installations and SSL configurations.
+FastAPI will scan environment properties from your local `.env` file and look for cluster configurations at `~/.kube/config`.

@@ -1,76 +1,49 @@
 # System Architecture Guide
 
-This document details the architectural principles and flow mechanics within **DevOps Nexus**.
+This document details the architectural principles and flow mechanics within **DevOps Nexus** (v0.2).
 
 ---
 
 ## 🏛️ Architecture Overview
 
-DevOps Nexus operates as an **Internal Developer Platform (IDP)** overlay that orchestrates and monitors application microservices running on Kubernetes. It is built on three pillars:
-
-1. **Declarative GitOps Delivery:** Continuous alignment between Git source manifests and Kubernetes live states via ArgoCD.
-2. **Integrated Telemetry Loop:** Full-stack metric collection and log aggregation using Prometheus, Grafana, and Loki.
-3. **AI-Powered Diagnostics:** Machine-assisted triage correlating events, logs, and trace parameters to resolve service degradation.
-
----
-
-## 🔁 Communication Flows
+DevOps Nexus operates as an **Internal Developer Platform (IDP)** overlay containerized as a single application suite (FastAPI backend + React frontend) that manages e-commerce app microservices running on Kubernetes.
 
 ```
  +-------------------------------------------------------------------------------+
- |                              Developer Git Push                               |
+ |                              React Frontend UI                                |
  +-------------------------------------------------------------------------------+
-                                         |
-                                         v
+                                         │
+                                         ▼ (HTTP API calls)
  +-------------------------------------------------------------------------------+
- |                        GitHub Actions Build & Test                            |
+ |                           FastAPI API Backend                                 |
+ |                      (Managed with Python Poetry)                             |
  +-------------------------------------------------------------------------------+
-                                         |
-                       +-----------------+-----------------+
-                       | Pushes Images                     | Modifies Configs
-                       v                                   v
- +-----------------------------+                   +-----------------------------+
- |     Container Registry      |                   |       Helm Chart Git        |
- +-----------------------------+                   +-----------------------------+
-                       ^                                           |
-                       | Pulls images                              | Syncs State
-                       v                                           v
- +-------------------------------------------------------------------------------+
- |                              ArgoCD Controller                                |
- +-------------------------------------------------------------------------------+
-                                         |
-                                         v
- +-------------------------------------------------------------------------------+
- |                           Kubernetes Runtime                                  |
- |  +--------------------+  +--------------------+  +--------------------+       |
- |  |  Frontend Service  |  |  Gateway Service   |  |   Auth Service     |  ...  |
- |  +--------------------+  +--------------------+  +--------------------+       |
- +-------------------------------------------------------------------------------+
-                                         |
-                                         v  (Logs & Metrics)
- +-------------------------------------------------------------------------------+
- |                         Observability Scrapers                                |
- |  * Prometheus Engine                         * Grafana Dashboard              |
- |  * Loki Collector                            * Alertmanager Node              |
- +-------------------------------------------------------------------------------+
-                                         |
-                                         v  (Correlates Alerts & Logs)
- +-------------------------------------------------------------------------------+
- |                           AI Incident Analyzer                                |
- +-------------------------------------------------------------------------------+
+         │                       │                       │               │
+         ▼                       ▼                       ▼               ▼
+ +---------------+       +---------------+       +---------------+  +------------+
+ |  Kubernetes   |       |  ArgoCD API   |       | Prometheus &  |  | Pluggable  |
+ |  Cluster API  |       |               |       | Loki Logs API |  | AI Engine  |
+ +---------------+       +---------------+       +---------------+  +------------+
+         │                       │                       │               │
+         ▼                       ▼                       ▼               ▼
+ [ Pod / Node ]          [ Application ]         [ Metrics & ]      [ Ollama / ]
+ [ Management ]          [ Sync Status ]         [ Ingestion ]      [ OpenAI ]
 ```
 
 ---
 
 ## 🧩 Architectural Layers
 
-### Microservice Tier
-Applications run inside distinct Pod topologies with resource constraints (`hpa.yaml`). They communicate through the API `gateway` which acts as the perimeter ingress path. Inter-service communications are isolated using `networkpolicy.yaml` configuration parameters.
+### Platform Backend Client (`platform/backend`)
+A FastAPI application that encapsulates connections to:
+1. **Kubernetes API:** Queries cluster resources, lists pod statuses, retrieves logs, and triggers namespace events.
+2. **ArgoCD API:** Monitors declarative sync states.
+3. **Observability Clients:** Scrapes metric outputs from Prometheus and streams pod log files from Loki.
+4. **AI Connectors:** Dispatches context (logs, errors, and system events) to local Ollama containers or remote OpenAI endpoints for incident triage.
 
-### Observability Tier
-* **Prometheus:** Pull-based metrics collector querying pods exposing `/metrics` endpoints.
-* **Loki:** DaemonSet log collector streaming pod stdout/stderr payloads.
-* **Alertmanager:** Evaluation engine parsing thresholds and forwarding warnings.
-
-### GitOps Tier
-ArgoCD uses the pull pattern, checking the application declarations under `/gitops/argocd` against target cluster states. All environment overrides (`dev`, `qa`, `stage`, `prod`) are managed in Git, making configuration updates auditable and reversible.
+### Platform Frontend SPA (`platform/frontend`)
+A React + Vite application written in TypeScript that fetches data from the backend APIs, rendering:
+* Operational statuses of user microservices.
+* Interactive real-time metrics panels.
+* Integrated CLI log console.
+* AI recommendations post-mortem reports panel.

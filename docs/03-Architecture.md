@@ -1,28 +1,27 @@
 # Platform Architecture
 
 ## Overview
-This document dives deep into the high-level architecture of the **DevOps Nexus** platform, focusing on decoupled microservice coordination, centralized observability routing, and GitOps controls.
+This document details the architecture of the **DevOps Nexus** unified core platform, focusing on decoupled microservice coordination, centralized observability routing, and GitOps controls.
 
 ## Goals
-- Detail microservice isolation boundaries.
-- Map the ingestion paths for metrics and logging data.
-- Illustrate security boundaries using Network Policies.
+- Detail platform backend endpoints division.
+- Document inter-component API client connections (ArgoCD, Kubernetes API, Prometheus, Loki, AI).
 
 ## Implementation Plan
-1. **API Ingress Gateway:**
-   - Single point of entry via the `gateway` microservice.
-   - Routes incoming requests to target services (`auth`, `users`, `orders`, etc.) based on URL prefix.
-2. **State Management & Caching:**
-   - Isolated state per service (e.g. Postgres databases).
-   - Local microservice credentials injected via Kubernetes Secrets.
-3. **Observability Hooking:**
-   - Metric scraping points exposed via HTTP `/metrics` interfaces in all application services.
-   - Loki agents gathering container logs directly from node container runtimes.
+1. **API Ingress routing:**
+   - Client access occurs via the React TypeScript UI.
+   - React UI communicates directly with the FastAPI backend exposed on port 8000.
+2. **FastAPI Client Connectors:**
+   - **`services/k8s_client.py`:** Handles cluster API interactions using the official Kubernetes Python Client library.
+   - **`services/prometheus_client.py` & `loki_client.py`:** Telemetry scrapers gathering metrics/logs.
+   - **`services/ai_engine.py`:** Integrates pluggable AI models.
+3. **Pluggable AI Integration:**
+   - Core API backend routes incident contexts dynamically to local Ollama nodes or external APIs depending on environment settings.
 
 ## Future Work
-* **Event Broker Integration:** Design Kafka/RabbitMQ stubs for asynchronous messaging between orders, inventory, and payment services.
-* **Service Mesh Integration:** Evaluate Linkerd or Istio for mTLS and end-to-end traffic encryption between pods.
+* **Kubernetes Webhook controller:** Setup controllers to trigger active callbacks into FastAPI on deployment failure events.
+* **Redis caching layers:** Configure Redis cache hooks to speed up repeated queries to cluster states.
 
 ## References
 * [Twelve-Factor App Methodology](https://12factor.net/)
-* [Kubernetes Ingress Architectures](https://kubernetes.io/docs/concepts/services-networking/ingress/)
+* [Kubernetes Python Client Reference](https://github.com/kubernetes-client/python)

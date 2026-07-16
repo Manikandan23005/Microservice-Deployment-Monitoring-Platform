@@ -1,26 +1,27 @@
 # Observability Stack Guide
 
 ## Overview
-This document describes the structure and operations of the DevOps Nexus Observability stack: Prometheus, Grafana, Loki, and Alertmanager.
+This document describes how DevOps Nexus integrates with the cluster observability stack (Prometheus, Loki, Alertmanager).
 
 ## Goals
 - Aggregate metrics and logs from all running microservices.
-- Provide unified dashboards for developer triage.
-- Configure alerting pathways for immediate incident warnings.
+- Retrieve data programmatically via our unified FastAPI backend observability services.
 
 ## Implementation Plan
 1. **Metrics Collection:**
-   - Prometheus scrapers query target service ports.
-   - Core metrics: request volume, latency, error rates, and CPU saturation.
+   - Prometheus queries pod performance status.
+   - FastAPI backend queries Prometheus REST endpoints (`/api/v1/query`) using `httpx` to parse and serialize measurements.
 2. **Log Aggregation:**
-   - Loki streams container logs mapped by namespace, pod name, and container name.
-3. **Alerting System:**
-   - Alertmanager rules trigger warning thresholds (e.g. pods in CrashLoopBackOff).
+   - Loki aggregates container logs.
+   - FastAPI backend endpoints query Loki API streams (`/loki/api/v1/query_range`) and return them as a unified text socket to the React client logs console.
+3. **Alertmanager Webhooks:**
+   - Alertmanager posts firing alerts directly to the FastAPI path `/api/v1/alerts`.
+   - The platform receives alerts, gathers Loki logs around the alert timestamp, and submits the context to the AI diagnostics queue.
 
 ## Future Work
-* **OpenTelemetry SDK Integration:** Instrument code for distributed tracing to monitor inter-service API call latency.
-* **Grafana Dashboard Templating:** Standardize multi-tenant developer dashboard layouts.
+* **OpenTelemetry Distributed Tracing:** Implement tracing endpoints in FastAPI to visualize trace trees in the React UI.
+* **WebSocket Streams:** Use WebSockets for streaming logs from Loki dynamically.
 
 ## References
-* [Prometheus Configuration](https://prometheus.io/docs/prometheus/latest/configuration/configuration/)
-* [Loki LogQL Reference](https://grafana.com/docs/loki/latest/query/)
+* [Prometheus API Documentation](https://prometheus.io/docs/prometheus/latest/querying/api/)
+* [Loki HTTP API Reference](https://grafana.com/docs/loki/latest/reference/api/)

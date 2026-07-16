@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  platform-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - KUBERNETES_SERVICE_HOST=kubernetes.default.svc
+      - PROMETHEUS_URL=http://prometheus-service:9090
+      - LOKI_URL=http://loki-service:3100
+      - AI_PROVIDER=ollama
+      - OLLAMA_HOST=http://ollama-service:11434
+    env_file:
+      - .env
+    depends_on:
+      - redis
+      - ollama-service
+
+  platform-frontend:
+    # --- Vite React App Server stub ---
+    build:
+      context: ./platform/frontend
+      dockerfile: ../../applications/frontend/Dockerfile # Reuse node builder logic
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  ollama-service:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+
+volumes:
+  ollama-data:
