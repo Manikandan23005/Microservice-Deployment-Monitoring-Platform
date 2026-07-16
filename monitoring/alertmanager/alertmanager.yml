@@ -1,0 +1,20 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  group_by: ['alertname', 'namespace']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 1h
+  receiver: 'default-receiver'
+  routes:
+    - match:
+        severity: critical
+      receiver: 'ai-incident-analyzer-webhook'
+
+receivers:
+  - name: 'default-receiver'
+    # TODO: Add fallback notifications (such as Email SMTP configs)
+  - name: 'ai-incident-analyzer-webhook'
+    webhook_configs:
+      - url: 'http://ai-analyzer-service.devops-nexus.svc.cluster.local:8000/alerts'

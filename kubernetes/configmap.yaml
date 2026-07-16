@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: devops-nexus-config
+  namespace: devops-nexus
+data:
+  # TODO: Add specific environment mappings
+  LOG_LEVEL: "info"
+  PORT: "8080"
+  AUTH_SERVICE_URL: "http://auth-service.devops-nexus.svc.cluster.local:8000"
+  USERS_SERVICE_URL: "http://users-service.devops-nexus.svc.cluster.local:8000"
+  PRODUCTS_SERVICE_URL: "http://products-service.devops-nexus.svc.cluster.local:8000"
+  ORDERS_SERVICE_URL: "http://orders-service.devops-nexus.svc.cluster.local:8000"

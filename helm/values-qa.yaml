@@ -1,0 +1,18 @@
+# QA overrides
+global:
+  environment: "qa"
+
+gateway:
+  replicaCount: 2
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+ingress:
+  enabled: true
+  hosts:
+    - host: qa.nexus.local
+      paths:
+        - path: /
+          pathType: Prefix

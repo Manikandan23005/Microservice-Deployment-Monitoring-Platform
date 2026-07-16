@@ -1,0 +1,17 @@
+{
+  "name": "ecommerce-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "echo 'Starting dev server...' && node src/index.js",
+    "build": "echo 'Building static assets...'",
+    "start": "node src/index.js",
+    "test": "node tests/index.test.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  }
+}

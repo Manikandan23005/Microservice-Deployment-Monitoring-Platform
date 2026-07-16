@@ -1,0 +1,11 @@
+Thank you for installing {{ .Chart.Name }}.
+
+Your release is named {{ .Release.Name }} and deployed in namespace {{ .Release.Namespace }}.
+
+To verify that the gateway pod is running:
+  kubectl get pods --namespace {{ .Release.Namespace }} -l "app=gateway"
+
+To check ingress routing logs:
+  kubectl get ingress --namespace {{ .Release.Namespace }}
+
+Happy GitOps deploying!

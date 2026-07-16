@@ -1,0 +1,18 @@
+# Dev overrides
+global:
+  environment: "dev"
+
+gateway:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+ingress:
+  enabled: true
+  hosts:
+    - host: dev.nexus.local
+      paths:
+        - path: /
+          pathType: Prefix

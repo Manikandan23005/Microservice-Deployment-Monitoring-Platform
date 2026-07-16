@@ -1,0 +1,18 @@
+# Staging overrides
+global:
+  environment: "staging"
+
+gateway:
+  replicaCount: 2
+  resources:
+    requests:
+      cpu: 150m
+      memory: 192Mi
+
+ingress:
+  enabled: true
+  hosts:
+    - host: staging.nexus.local
+      paths:
+        - path: /
+          pathType: Prefix

@@ -1,0 +1,32 @@
+# Default values for DevOps Nexus.
+
+global:
+  environment: "development"
+
+gateway:
+  replicaCount: 1
+  image:
+    repository: devopsnexus/gateway
+    pullPolicy: IfNotPresent
+    tag: "latest"
+  service:
+    type: ClusterIP
+    port: 8080
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+ingress:
+  enabled: false
+  className: "nginx"
+  annotations: {}
+  hosts:
+    - host: chart-example.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
