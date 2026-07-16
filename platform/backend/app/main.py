@@ -6,6 +6,7 @@ from app.core.settings import settings
 from app.core.logging import setup_logging, RequestLoggingMiddleware
 from app.middleware import RequestIDMiddleware, ProcessingTimeMiddleware, GlobalExceptionMiddleware
 from app.routers import root_router, health_router, version_router
+from app.routers.k8s import router as k8s_router
 
 # Setup logger configurations on startup
 setup_logging()
@@ -39,3 +40,4 @@ app.add_middleware(GlobalExceptionMiddleware)
 app.include_router(root_router, tags=["Root"])
 app.include_router(health_router, tags=["Probes"])
 app.include_router(version_router, tags=["Version"])
+app.include_router(k8s_router, tags=["Kubernetes"])
