@@ -1,5 +1,5 @@
 # --- Build Stage ---
-FROM python:3.11-slim AS builder
+FROM python:3.13-slim AS builder
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -23,7 +23,7 @@ COPY platform/shared ./platform/shared
 RUN poetry install --only main --no-root
 
 # --- Runtime Stage ---
-FROM python:3.11-slim AS runner
+FROM python:3.13-slim AS runner
 WORKDIR /app
 
 ENV PATH="/app/.venv/bin:$PATH" \

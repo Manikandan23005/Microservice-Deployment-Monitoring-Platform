@@ -1,29 +1,33 @@
-# Unified Platform Backend API
+# Platform Backend Engine
 
 ## Overview
-This is the API backend codebase serving the DevOps Nexus core platform. It acts as the orchestration engine, coordinating connections to the Kubernetes API, ArgoCD, Prometheus telemetry metrics, Loki logs, and the AI Incident Analyzer service.
+This is the API backend core engine of the DevOps Nexus platform. It exposes REST endpoints managing Kubernetes deployment tasks and aggregating system telemetries.
 
-## Tech Stack
-* **Framework:** FastAPI (Python 3.11)
-* **Package Manager:** Poetry
-* **ASGI Server:** Uvicorn
+## Directory Layout
+* `app/core/`: Global configurations (`settings.py`) and loggers (`logging.py`).
+* `app/middleware/`: ID tracing, exceptions interceptors, and CORS settings.
+* `app/routers/`: Version controllers and liveness health checks.
+* `app/schemas/`: Validation models defining response formats.
+* `tests/`: Integration specs verifying endpoints.
 
-## Structure
-* `app/api/`: Endpoint controllers.
-* `app/services/`: Core systems connectors (Kubernetes client, Prometheus client, ArgoCD api client, AI engine interface).
-* `app/models/`: Pydantic data schemas.
-* `app/utils/`: Helper utilities.
-* `app/config/`: App settings loader.
+## Startup
+To run the server locally:
+1. Initialize environment properties:
+   ```bash
+   cp ../../.env.example .env
+   ```
+2. Start the Uvicorn runtime:
+   ```bash
+   poetry install
+   poetry run uvicorn app.main:app --reload
+   ```
 
-## Development Setup
-Install dependencies and activate environment:
+## API Docs URL
+* **Swagger Interface:** [http://localhost:8000/docs](http://localhost:8000/docs)
+* **ReDoc Portal:** [http://localhost:8000/redoc](http://localhost:8000/redoc)
+
+## Testing
+Run pytest from the backend folder:
 ```bash
-cd platform/backend
-poetry install
-poetry shell
-```
-
-Run application locally:
-```bash
-uvicorn app.main:app --reload
+poetry run pytest
 ```
