@@ -4,7 +4,10 @@ version = "0.2.0"
 description = "FastAPI Orchestrator backend for DevOps Nexus"
 authors = ["DevOps Nexus Team <support@devopsnexus.io>"]
 readme = "platform/backend/README.md"
-packages = [{include = "app", from = "platform/backend"}]
+packages = [
+    {include = "app", from = "platform/backend"},
+    {include = "shared", from = "platform"}
+]
 
 [tool.poetry.dependencies]
 python = "^3.11"

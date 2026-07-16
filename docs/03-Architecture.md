@@ -15,7 +15,10 @@ This document details the architecture of the **DevOps Nexus** unified core plat
    - **`services/k8s_client.py`:** Handles cluster API interactions using the official Kubernetes Python Client library.
    - **`services/prometheus_client.py` & `loki_client.py`:** Telemetry scrapers gathering metrics/logs.
    - **`services/ai_engine.py`:** Integrates pluggable AI models.
-3. **Pluggable AI Integration:**
+3. **Shared Common Core Configurations (`platform/shared/`):**
+   - Config parameters are parsed dynamically via `shared/config.py` Pydantic models.
+   - Common request/response schemas are declared in `shared/models.py`.
+4. **Pluggable AI Integration:**
    - Core API backend routes incident contexts dynamically to local Ollama nodes or external APIs depending on environment settings.
 
 ## Future Work

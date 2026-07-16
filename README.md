@@ -140,7 +140,8 @@ Refer to [INSTALLATION.md](INSTALLATION.md) for detailed guidelines.
 DevOps-Nexus/
 ├── platform/              # Core Unified DevOps Platform
 │   ├── frontend/          # React + Vite + TS UI Client
-│   └── backend/           # FastAPI Python Backend
+│   ├── backend/           # FastAPI Python Backend
+│   └── shared/            # Common Models and Settings Configurations
 ├── applications/          # The microservices under deployment (auth, orders, etc.)
 ├── docs/                  # Engineering reference documentation
 ├── kubernetes/            # Core declarative YAML templates (stubs)

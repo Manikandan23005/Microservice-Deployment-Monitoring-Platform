@@ -41,6 +41,9 @@ A FastAPI application that encapsulates connections to:
 3. **Observability Clients:** Scrapes metric outputs from Prometheus and streams pod log files from Loki.
 4. **AI Connectors:** Dispatches context (logs, errors, and system events) to local Ollama containers or remote OpenAI endpoints for incident triage.
 
+### Platform Shared Module (`platform/shared`)
+A common utility suite used by the FastAPI backend to parse settings via Pydantic and serialize metrics and events data structures.
+
 ### Platform Frontend SPA (`platform/frontend`)
 A React + Vite application written in TypeScript that fetches data from the backend APIs, rendering:
 * Operational statuses of user microservices.

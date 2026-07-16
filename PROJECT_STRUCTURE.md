@@ -10,7 +10,8 @@ This document details the folder structure of the **DevOps Nexus** repository, e
 DevOps-Nexus/
 ├── platform/              # Core Unified DevOps Platform
 │   ├── frontend/          # React + Vite + TypeScript UI Client Codebase
-│   └── backend/           # FastAPI Orchestrator API Backend Codebase
+│   ├── backend/           # FastAPI Orchestrator API Backend Codebase
+│   └── shared/            # Shared Models, Configuration Schemes and Core Utils
 │       └── app/
 │           ├── api/       # HTTP request controllers
 │           ├── services/  # Kubernetes, ArgoCD, Prometheus integrations
@@ -40,6 +41,7 @@ DevOps-Nexus/
 The core DevOps Nexus application itself.
 * **Frontend:** A responsive Single Page Application (SPA) built using React, Vite, and TypeScript.
 * **Backend:** A highly scalable FastAPI service managed with **Poetry**. Exposes API endpoints for deployments, log streaming, pod lookups, and AI post-mortem generation.
+* **Shared:** Common Pydantic data schemas, Settings loader configuration singletons, and global tools utilized by platform backend APIs.
 
 ### 2. Applications (`/applications`)
 Simulates user applications (such as an e-commerce platform with services like `auth`, `payment`, `notification`). These are packaged into containers and deployed to Kubernetes.
