@@ -10,14 +10,12 @@ This document details the folder structure of the **DevOps Nexus** repository, e
 DevOps-Nexus/
 ├── platform/              # Core Unified DevOps Platform
 │   ├── frontend/          # React + Vite + TypeScript UI Client Codebase
+│   │   ├── src/           # Components, Pages, Hooks, Layouts, Services, Types, Assets
+│   │   └── public/        # Browser metadata and index icons
 │   ├── backend/           # FastAPI Orchestrator API Backend Codebase
-│   └── shared/            # Shared Models, Configuration Schemes and Core Utils
-│       └── app/
-│           ├── api/       # HTTP request controllers
-│           ├── services/  # Kubernetes, ArgoCD, Prometheus integrations
-│           ├── models/    # Pydantic data validation schemas
-│           ├── utils/     # Shared logs and helper utilities
-│           └── config/    # Global settings loader
+│   │   ├── app/           # api, core, services, clients, schemas, routers, dependencies, utils
+│   │   └── tests/         # Unit and integration test suites
+│   └── shared/            # Common Models, Configs, Loggers, Exceptions and Constants
 ├── applications/          # The microservices under deployment (auth, orders, etc.)
 ├── docs/                  # Detailed system architecture guides and manuals
 ├── kubernetes/            # Core declarative YAML templates (stubs)
