@@ -1,10 +1,31 @@
+import axios from 'axios';
 import { AppInfo, PodInfo, NodeInfo, AlertInfo, LogLine } from '../types';
 
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+// Load API URL from Vite environment variables (fallback to localhost:8000)
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+const apiClient = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 5000,
+});
 
 export const api = {
   getApplications: async (): Promise<AppInfo[]> => {
-    await sleep(200);
+    try {
+      const response = await apiClient.get('/api/v1/k8s/deployments');
+      if (response.data && response.data.success) {
+        // Map backend deployments response structure to AppInfo format
+        return response.data.data.map((dep: any) => ({
+          name: dep.name,
+          status: dep.available_replicas === dep.replicas ? 'Synced' : 'OutOfSync',
+          environment: dep.namespace === 'devops-nexus-prod' ? 'prod' : 'dev',
+          targetRevision: 'main-v1.0.0',
+          lastSync: 'Sync active'
+        }));
+      }
+    } catch {
+      // Fallback fallback if backend service is offline
+    }
     return [
       { name: 'auth-service', status: 'Synced', environment: 'prod', targetRevision: 'main-v1.0.0', lastSync: '2 mins ago' },
       { name: 'orders-service', status: 'Synced', environment: 'prod', targetRevision: 'main-v1.2.0', lastSync: '10 mins ago' },
@@ -16,7 +37,21 @@ export const api = {
   },
 
   getPods: async (): Promise<PodInfo[]> => {
-    await sleep(150);
+    try {
+      const response = await apiClient.get('/api/v1/k8s/pods');
+      if (response.data && response.data.success) {
+        return response.data.data.map((pod: any) => ({
+          name: pod.name,
+          namespace: pod.namespace,
+          status: pod.status === 'Running' ? 'Running' : 'Pending',
+          restarts: pod.restarts,
+          cpu: '15m',
+          memory: '32Mi'
+        }));
+      }
+    } catch {
+      // Fallback
+    }
     return [
       { name: 'gateway-pod-7dfg8', namespace: 'devops-nexus-prod', status: 'Running', restarts: 0, cpu: '25m', memory: '48Mi' },
       { name: 'auth-pod-89dfg', namespace: 'devops-nexus-prod', status: 'Running', restarts: 0, cpu: '10m', memory: '32Mi' },
@@ -28,7 +63,21 @@ export const api = {
   },
 
   getNodes: async (): Promise<NodeInfo[]> => {
-    await sleep(150);
+    try {
+      const response = await apiClient.get('/api/v1/k8s/nodes');
+      if (response.data && response.data.success) {
+        return response.data.data.map((node: any) => ({
+          name: node.name,
+          status: node.status,
+          role: node.role,
+          cpuAllocated: '45%',
+          memoryAllocated: '60%',
+          ipAddress: node.ip_address
+        }));
+      }
+    } catch {
+      // Fallback
+    }
     return [
       { name: 'node-control-plane-1', status: 'Ready', role: 'control-plane', cpuAllocated: '45%', memoryAllocated: '60%', ipAddress: '192.168.1.100' },
       { name: 'node-worker-worker-2', status: 'Ready', role: 'worker', cpuAllocated: '75%', memoryAllocated: '80%', ipAddress: '192.168.1.101' },
@@ -37,7 +86,6 @@ export const api = {
   },
 
   getAlerts: async (): Promise<AlertInfo[]> => {
-    await sleep(100);
     return [
       { id: '1', severity: 'critical', message: 'Payment-service pods are crashing (restarts > 5)', service: 'payment-service', timestamp: '3 mins ago' },
       { id: '2', severity: 'warning', message: 'Users-service latency spike detected (> 500ms)', service: 'users-service', timestamp: '12 mins ago' },
@@ -45,8 +93,20 @@ export const api = {
     ];
   },
 
-  getLogs: async (pod: string): Promise<LogLine[]> => {
-    await sleep(200);
+  getLogs: async (pod: string, search?: string): Promise<LogLine[]> => {
+    try {
+      const params: any = { pod };
+      if (search) params.search = search;
+      
+      const response = await apiClient.get('/api/v1/monitoring/logs', { params });
+      if (response.data && response.data.success) {
+        return response.data.data;
+      }
+    } catch {
+      // Fallback
+    }
+    
+    // Fallback Mock Logs
     const now = new Date().toISOString();
     return [
       { timestamp: now, pod, message: `[INFO] Initializing service container client...` },
@@ -58,7 +118,7 @@ export const api = {
   },
 
   askAI: async (prompt: string): Promise<string> => {
-    await sleep(1000);
+    await new Promise(resolve => setTimeout(resolve, 1000));
     const lowerPrompt = prompt.toLowerCase();
     if (lowerPrompt.includes('payment') || lowerPrompt.includes('restarting') || lowerPrompt.includes('crashloopbackoff')) {
       return `### DevOps Nexus AI Diagnostics Report\n\n**Incident:** Pod \`payment-pod-99hgf\` is currently in \`CrashLoopBackOff\` status with **5 restarts**.\n\n**Root Cause Identification:**\nAnalyzing Loki aggregate logs reveals a connection timeout to the Stripe payment integration client. The secret configuration \`STRIPE_API_KEY\` contains invalid syntax or has expired.\n\n**Actionable Remediation steps:**\n1. Run \`kubectl describe secret devops-nexus-secrets -n devops-nexus\` to check parameter keys.\n2. Update Stripe values tags in Helm config values-dev.yaml and trigger ArgoCD synchronize controls.`;
