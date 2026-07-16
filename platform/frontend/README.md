@@ -1,22 +1,30 @@
-# Unified Platform Frontend UI
+# Platform Frontend Client UI
 
 ## Overview
-This is the client interface codebase for the DevOps Nexus core platform. It provides developers and administrators with visual access to application deployments, telemetry charts, log aggregators, and AI-powered root-cause analysis suggestions.
+This is the client interface Single Page Application (SPA) codebase for the DevOps Nexus platform. It provides visual dashboard grids and real-time status details of deployments.
 
-## Tech Stack
-* **Language:** TypeScript
-* **UI Library:** React.js (v18+)
-* **Build Tool:** Vite
-* **Styling:** Vanilla CSS
+## Directory Layout
+* `src/components/`: Reusable cards, grids, loading spinners, and table components.
+* `src/layouts/`: Collapsible sidebars and top navigation headers.
+* `src/pages/`: Main application routing view paths.
+* `src/services/`: Local endpoints query client (`api.ts`).
+* `src/types/`: TypeScript interface specs.
+* `public/`: Index favicons and HTML references.
 
-## Development Setup
+## Local Startup
+To initialize the React client locally:
 ```bash
-# Navigate to the frontend directory
-cd platform/frontend
-
-# Install node dependencies
+# Install dependencies
 npm install
 
-# Start the local development server
+# Run the local server
 npm run dev
 ```
+Open [http://localhost:3000](http://localhost:3000) inside your web browser.
+
+## Production Builds
+Compile TypeScript definitions and build deployment assets:
+```bash
+npm run build
+```
+The compiled output is written to `/dist` directory.
