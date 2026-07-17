@@ -9,8 +9,6 @@ services:
     environment:
       - PORT=8000
       - KUBERNETES_SERVICE_HOST=kubernetes.default.svc
-      - PROMETHEUS_URL=http://prometheus-service:9090
-      - LOKI_URL=http://loki-service:3100
       - AI_PROVIDER=groq
     env_file:
       - .env

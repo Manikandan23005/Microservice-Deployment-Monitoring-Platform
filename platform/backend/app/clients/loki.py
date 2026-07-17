@@ -23,7 +23,7 @@ class LokiClient:
             params["end"] = str(int(end * 1e9))
 
         try:
-            with httpx.Client(timeout=5.0) as client:
+            with httpx.Client(timeout=1.5) as client:
                 response = client.get(url, params=params)
                 if response.status_code != 200:
                     raise TelemetryFetchException(f"Loki query_range returned status {response.status_code}: {response.text}")

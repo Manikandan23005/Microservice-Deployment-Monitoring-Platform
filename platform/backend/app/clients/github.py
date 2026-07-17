@@ -17,7 +17,7 @@ class GitHubClient:
     def get_branches(self, owner: str, repo: str) -> List[Dict[str, Any]]:
         url = f"{self.base_url}/repos/{owner}/{repo}/branches"
         try:
-            with httpx.Client(headers=self.headers, timeout=5.0) as client:
+            with httpx.Client(headers=self.headers, timeout=1.5) as client:
                 response = client.get(url)
                 if response.status_code != 200:
                     raise DevOpsNexusException(f"GitHub returned error {response.status_code}: {response.text}")
@@ -29,7 +29,7 @@ class GitHubClient:
     def get_commits(self, owner: str, repo: str) -> List[Dict[str, Any]]:
         url = f"{self.base_url}/repos/{owner}/{repo}/commits"
         try:
-            with httpx.Client(headers=self.headers, timeout=5.0) as client:
+            with httpx.Client(headers=self.headers, timeout=1.5) as client:
                 response = client.get(url)
                 if response.status_code != 200:
                     raise DevOpsNexusException(f"GitHub returned error {response.status_code}: {response.text}")
@@ -41,7 +41,7 @@ class GitHubClient:
     def get_workflow_runs(self, owner: str, repo: str) -> List[Dict[str, Any]]:
         url = f"{self.base_url}/repos/{owner}/{repo}/actions/runs"
         try:
-            with httpx.Client(headers=self.headers, timeout=5.0) as client:
+            with httpx.Client(headers=self.headers, timeout=1.5) as client:
                 response = client.get(url)
                 if response.status_code != 200:
                     raise DevOpsNexusException(f"GitHub returned error {response.status_code}: {response.text}")

@@ -15,7 +15,7 @@ class PrometheusClient:
         url = f"{self.base_url}/api/v1/query"
         params = {"query": query_string}
         try:
-            with httpx.Client(timeout=5.0) as client:
+            with httpx.Client(timeout=1.5) as client:
                 response = client.get(url, params=params)
                 if response.status_code != 200:
                     raise TelemetryFetchException(f"Prometheus query returned status {response.status_code}: {response.text}")
@@ -34,7 +34,7 @@ class PrometheusClient:
             "step": step
         }
         try:
-            with httpx.Client(timeout=5.0) as client:
+            with httpx.Client(timeout=1.5) as client:
                 response = client.get(url, params=params)
                 if response.status_code != 200:
                     raise TelemetryFetchException(f"Prometheus query_range returned status {response.status_code}: {response.text}")
