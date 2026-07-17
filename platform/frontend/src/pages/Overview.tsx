@@ -4,21 +4,56 @@ import { Table } from '../components/Table';
 import { Loading } from '../components/Loading';
 import { api } from '../services/api';
 import { AppInfo } from '../types';
-import { Shield, Cpu, Layers, GitBranch } from 'lucide-react';
+import { Shield, Cpu, Layers, GitBranch, RefreshCw, GitCommit } from 'lucide-react';
 
 const Overview: React.FC = () => {
   const [apps, setApps] = useState<AppInfo[]>([]);
+  const [metrics, setMetrics] = useState({ cpu_utilization: 0, memory_utilization: 0, disk_utilization: 0, network_throughput_bytes: 0 });
+  const [gitDetails, setGitDetails] = useState({ owner: '', repository: '', branches: [] as string[], latest_commits: [] as any[] });
+  const [namespace, setNamespace] = useState('devops-nexus-prod');
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchDashboardData = async (silent = false) => {
+    if (!silent) setLoading(true);
+    else setRefreshing(true);
+    
+    try {
+      const [appsData, metricsData, gitData] = await Promise.all([
+        api.getApplications(),
+        api.getClusterMetrics(),
+        api.getGitHubDetails()
+      ]);
+      // Filter workloads matching chosen namespace profile
+      const filteredApps = appsData.filter(app => 
+        (namespace === 'devops-nexus-prod' && app.environment === 'prod') ||
+        (namespace !== 'devops-nexus-prod' && app.environment === 'dev')
+      );
+      setApps(filteredApps);
+      setMetrics(metricsData);
+      setGitDetails(gitData);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
 
   useEffect(() => {
-    api.getApplications().then((data) => {
-      setApps(data);
-      setLoading(false);
-    });
-  }, []);
+    fetchDashboardData();
+  }, [namespace]);
 
-  const columns = [
-    { header: 'Application', accessor: 'name' as const },
+  // Real-time auto-refresh interval: 5 seconds
+  useEffect(() => {
+    const timer = setInterval(() => {
+      fetchDashboardData(true);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [namespace]);
+
+  const appColumns = [
+    { header: 'Workload', accessor: 'name' as const },
     {
       header: 'Status',
       accessor: (item: AppInfo) => (
@@ -32,26 +67,114 @@ const Overview: React.FC = () => {
         </span>
       )
     },
-    { header: 'Environment', accessor: (item: AppInfo) => <span className="uppercase text-xs font-bold text-slate-400">{item.environment}</span> },
-    { header: 'Revision', accessor: 'targetRevision' as const },
-    { header: 'Last Sync', accessor: 'lastSync' as const }
+    { header: 'Target Revision', accessor: 'targetRevision' as const },
+    { header: 'Last Sync Action', accessor: 'lastSync' as const }
   ];
+
+  if (loading) return <Loading />;
 
   return (
     <div className="space-y-8">
-      {/* Overview Cards Header */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card title="Deployments" value="8 active" subtext="All envs monitoring active" icon={GitBranch} />
-        <Card title="Total Pods" value="12 pods" subtext="1 CrashLoopBackOff detected" icon={Shield} trend={{ value: '-1', type: 'negative' }} />
-        <Card title="CPU Saturation" value="50%" subtext="Average worker usage limit" icon={Cpu} trend={{ value: '+4%', type: 'positive' }} />
-        <Card title="Namespaces" value="4 active" subtext="dev, qa, staging, production" icon={Layers} />
+      {/* Dashboard Top Header & Namespace selector */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-extrabold tracking-tight text-slate-800 dark:text-white">Unified Cluster Control</h1>
+          <p className="text-sm text-slate-400 mt-1">Real-time telemetry streams from Prometheus, Loki and ArgoCD.</p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          {refreshing && <RefreshCw className="h-4 w-4 text-blue-500 animate-spin" />}
+          <select 
+            value={namespace}
+            onChange={(e) => setNamespace(e.target.value)}
+            className="px-4 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:outline-none focus:border-blue-500 text-sm font-semibold cursor-pointer"
+          >
+            <option value="devops-nexus-dev">Namespace: dev</option>
+            <option value="devops-nexus-qa">Namespace: qa</option>
+            <option value="devops-nexus-stage">Namespace: staging</option>
+            <option value="devops-nexus-prod">Namespace: production</option>
+          </select>
+        </div>
       </div>
 
-      {/* Main Apps Grid Table */}
+      {/* Cluster Aggregated Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card title="Deployments" value={`${apps.length} active`} subtext={`Filtered namespace: ${namespace}`} icon={GitBranch} />
+        <Card title="CPU Utilization" value={`${metrics.cpu_utilization.toFixed(1)}%`} subtext="Cluster total capacity load" icon={Cpu} />
+        <Card title="Memory Allocation" value={`${metrics.memory_utilization.toFixed(1)}%`} subtext="Memory capacity threshold" icon={Shield} />
+        <Card title="Network Speed" value={`${(metrics.network_throughput_bytes / 1024).toFixed(1)} KB/s`} subtext="Active I/O ingress rates" icon={Layers} />
+      </div>
+
+      {/* Resource Utilization Gauges & Git Commit Viewer */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        {/* Resource Usage progress bars */}
+        <div className="glass-panel p-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/40 dark:bg-slate-900/40 space-y-6 lg:col-span-1">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">Resource Saturation</h2>
+          
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <div className="flex justify-between text-xs font-semibold text-slate-500">
+                <span>CPU Load</span>
+                <span>{metrics.cpu_utilization.toFixed(1)}%</span>
+              </div>
+              <div className="h-2 w-full bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div className="h-full bg-blue-500 rounded-full transition-all duration-500" style={{ width: `${metrics.cpu_utilization}%` }} />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="flex justify-between text-xs font-semibold text-slate-500">
+                <span>Memory Allocation</span>
+                <span>{metrics.memory_utilization.toFixed(1)}%</span>
+              </div>
+              <div className="h-2 w-full bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div className="h-full bg-indigo-500 rounded-full transition-all duration-500" style={{ width: `${metrics.memory_utilization}%` }} />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="flex justify-between text-xs font-semibold text-slate-500">
+                <span>Disk Storage capacity</span>
+                <span>{metrics.disk_utilization.toFixed(1)}%</span>
+              </div>
+              <div className="h-2 w-full bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div className="h-full bg-emerald-500 rounded-full transition-all duration-500" style={{ width: `${metrics.disk_utilization}%` }} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Git Commit Viewer */}
+        <div className="glass-panel p-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/40 dark:bg-slate-900/40 space-y-4 lg:col-span-2">
+          <div className="flex items-center gap-2">
+            <GitCommit className="h-5 w-5 text-blue-500" />
+            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400">Git Repository History ({gitDetails.repository})</h2>
+          </div>
+
+          <div className="divide-y divide-slate-200 dark:divide-slate-800">
+            {gitDetails.latest_commits.map((commit: any, idx: number) => (
+              <div key={idx} className="py-3.5 flex items-center justify-between gap-4">
+                <div className="space-y-0.5">
+                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 line-clamp-1">{commit.message}</p>
+                  <p className="text-xs text-slate-400">Author: {commit.author}</p>
+                </div>
+                <span className="font-mono text-xs px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-blue-500">
+                  {commit.sha}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+      </div>
+
+      {/* Sync Status workloads table */}
       <div className="space-y-4">
         <h2 className="text-xl font-bold tracking-tight text-slate-800 dark:text-white">Active Workloads (GitOps Sync Status)</h2>
-        {loading ? <Loading /> : <Table columns={columns} data={apps} />}
+        <Table columns={appColumns} data={apps} />
       </div>
+
     </div>
   );
 };
