@@ -26,7 +26,14 @@ app = FastAPI(
     openapi_url="/openapi.json"
 )
 
-# 1. CORS Middlewares Setup
+# 1. Register Custom Platform Middlewares (Execution runs bottom-to-top)
+app.add_middleware(RequestLoggingMiddleware)
+app.add_middleware(ProcessingTimeMiddleware)
+app.add_middleware(RequestIDMiddleware)
+app.add_middleware(RateLimitMiddleware)
+app.add_middleware(GlobalExceptionMiddleware)
+
+# 2. CORS Middlewares Setup (Registered last to ensure outermost execution on responses)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"], # TODO: Load from environment settings in production
@@ -34,13 +41,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# 2. Register Custom Platform Middlewares (Execution runs bottom-to-top)
-app.add_middleware(RequestLoggingMiddleware)
-app.add_middleware(ProcessingTimeMiddleware)
-app.add_middleware(RequestIDMiddleware)
-app.add_middleware(RateLimitMiddleware)
-app.add_middleware(GlobalExceptionMiddleware)
 
 # 3. Mount Endpoint Routers
 app.include_router(root_router, tags=["Root"])
