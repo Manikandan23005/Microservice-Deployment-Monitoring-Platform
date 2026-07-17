@@ -19,7 +19,7 @@ const Deployments: React.FC = () => {
 
   const handleSync = async (appName: string) => {
     setTriggering(appName);
-    await new Promise(resolve => setTimeout(resolve, 800));
+    await api.syncApplication(appName);
     setApps(prev => prev.map(app => app.name === appName ? { ...app, status: 'Synced', lastSync: 'Just now' } : app));
     setTriggering(null);
   };

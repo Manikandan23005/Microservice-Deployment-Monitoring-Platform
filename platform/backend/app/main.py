@@ -8,6 +8,7 @@ from app.middleware import RequestIDMiddleware, ProcessingTimeMiddleware, Global
 from app.routers import root_router, health_router, version_router
 from app.routers.k8s import router as k8s_router
 from app.routers.monitoring import router as monitoring_router
+from app.routers.gitops import router as gitops_router
 
 # Setup logger configurations on startup
 setup_logging()
@@ -43,3 +44,4 @@ app.include_router(health_router, tags=["Probes"])
 app.include_router(version_router, tags=["Version"])
 app.include_router(k8s_router, tags=["Kubernetes"])
 app.include_router(monitoring_router, tags=["Observability"])
+app.include_router(gitops_router, tags=["GitOps"])
