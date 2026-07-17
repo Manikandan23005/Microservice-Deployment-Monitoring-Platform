@@ -23,33 +23,26 @@ class ArgoCDService:
                 })
             return result
         except ArgoCDConnectionException:
-            logger.info("ArgoCD connection failed. Yielding mock applications status list.")
-            return [
-                {"name": "auth-service", "sync_status": "Synced", "health_status": "Healthy", "repo_url": "https://github.com/Manikandan23005/DevOps-Nexus", "path": "helm/charts/auth"},
-                {"name": "payment-service", "sync_status": "OutOfSync", "health_status": "Degraded", "repo_url": "https://github.com/Manikandan23005/DevOps-Nexus", "path": "helm/charts/payment"},
-                {"name": "gateway-service", "sync_status": "Synced", "health_status": "Healthy", "repo_url": "https://github.com/Manikandan23005/DevOps-Nexus", "path": "helm/charts/gateway"}
-            ]
+            logger.info("ArgoCD connection failed. Returning empty applications list.")
+            return []
 
     def sync_application(self, app_name: str) -> Dict[str, Any]:
         try:
             return argocd_client.sync_application(app_name)
-        except ArgoCDConnectionException:
-            logger.info(f"ArgoCD offline. Simulating mock sync for {app_name}.")
-            return {"success": True, "message": f"Application {app_name} synchronized successfully (Mock)."}
+        except ArgoCDConnectionException as e:
+            raise e
 
     def refresh_application(self, app_name: str) -> Dict[str, Any]:
         try:
             return argocd_client.refresh_application(app_name)
-        except ArgoCDConnectionException:
-            logger.info(f"ArgoCD offline. Simulating mock refresh for {app_name}.")
-            return {"success": True, "message": f"Application {app_name} refreshed successfully (Mock)."}
+        except ArgoCDConnectionException as e:
+            raise e
 
     def rollback_application(self, app_name: str, revision: int) -> Dict[str, Any]:
         try:
             return argocd_client.rollback_application(app_name, revision)
-        except ArgoCDConnectionException:
-            logger.info(f"ArgoCD offline. Simulating mock rollback for {app_name} to revision {revision}.")
-            return {"success": True, "message": f"Successfully rolled back application {app_name} to revision {revision} (Mock)."}
+        except ArgoCDConnectionException as e:
+            raise e
 
     def get_application_history(self, app_name: str) -> List[Dict[str, Any]]:
         """Retrieves sync logs and historical revisions metadata."""
@@ -65,10 +58,7 @@ class ArgoCDService:
                 })
             return result
         except ArgoCDConnectionException:
-            logger.info(f"ArgoCD offline. Generating deployment histories mocks for {app_name}.")
-            return [
-                {"revision": "main-v1.0.0", "sync_time": "2026-07-16T18:00:00Z", "id": 1},
-                {"revision": "feature-stripe-v2", "sync_time": "2026-07-16T18:30:00Z", "id": 2}
-            ]
+            logger.info(f"ArgoCD offline. Returning empty deployment histories list for {app_name}.")
+            return []
 
 argocd_service = ArgoCDService()

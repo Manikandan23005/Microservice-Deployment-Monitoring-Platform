@@ -121,7 +121,7 @@ const Deployments: React.FC = () => {
     <div className="relative">
       <div className="space-y-6">
         <h2 className="text-2xl font-bold tracking-tight text-slate-800 dark:text-white">ArgoCD Declarative Deployments</h2>
-        <Table columns={columns} data={apps} />
+        <Table columns={columns} data={apps} emptyMessage="No deployments found." />
       </div>
 
       {/* --- Details Sidebar Overlay Drawer --- */}

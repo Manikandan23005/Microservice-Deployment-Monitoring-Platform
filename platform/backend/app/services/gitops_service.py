@@ -22,13 +22,8 @@ class GitOpsService:
                 })
             return result
         except DevOpsNexusException:
-            logger.info("GitHub API request failed. Yielding mock workflows status.")
-            # Return realistic mock GitHub Action runs logs
-            return [
-                {"id": 1024, "name": "Build & Publish Artifacts", "status": "completed", "conclusion": "success", "branch": "main", "event": "push", "url": "#"},
-                {"id": 1025, "name": "Lint Code Quality", "status": "completed", "conclusion": "success", "branch": "main", "event": "push", "url": "#"},
-                {"id": 1026, "name": "Run End-to-End Tests", "status": "completed", "conclusion": "failure", "branch": "feature/payment", "event": "pull_request", "url": "#"}
-            ]
+            logger.info("GitHub API request failed. Returning empty workflows status list.")
+            return []
 
     def get_repository_details(self, owner: str = "Manikandan23005", repo: str = "Microservice-Deployment-Monitoring-Platform") -> Dict[str, Any]:
         """Gathers latest commits list and branches catalog."""
@@ -51,16 +46,12 @@ class GitOpsService:
                 "latest_commits": parsed_commits
             }
         except DevOpsNexusException:
-            logger.info("GitHub client offline. Generating repository mock catalogs.")
+            logger.info("GitHub client offline. Returning empty repository details.")
             return {
                 "owner": owner,
                 "repository": repo,
-                "branches": ["main", "dev", "feature/payment"],
-                "latest_commits": [
-                    {"sha": "8820978", "author": "Antigravity", "message": "feat: implement Sprint-4 Prometheus metrics"},
-                    {"sha": "be8368c", "author": "Antigravity", "message": "feat: implement Sprint-1 backend infrastructure"},
-                    {"sha": "6b209f6", "author": "Antigravity", "message": "refactor: expand backend, frontend, and shared modules"}
-                ]
+                "branches": [],
+                "latest_commits": []
             }
 
 gitops_service = GitOpsService()

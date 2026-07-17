@@ -26,17 +26,8 @@ class LogService:
                     })
             return result
         except TelemetryFetchException:
-            logger.info(f"Loki connection failed. Generating logs fallback feed for pod {pod_name}.")
-            # Fallback mock lines
-            now = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
-            mock_logs = [
-                {"timestamp": now, "pod": pod_name, "message": f"[INFO] Listening on API routes configurations..."},
-                {"timestamp": now, "pod": pod_name, "message": f"[INFO] Connection established to downstream clients."},
-                {"timestamp": now, "pod": pod_name, "message": f"[WARN] Memory limits are nearing threshold limit > 70%."},
-            ]
-            if search:
-                return [line for line in mock_logs if search.lower() in line["message"].lower()]
-            return mock_logs
+            logger.info(f"Loki connection failed. Returning empty log stream feed for pod {pod_name}.")
+            return []
 
     def _nano_to_iso(self, nano_str: str) -> str:
         try:

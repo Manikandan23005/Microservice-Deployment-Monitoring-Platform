@@ -21,13 +21,12 @@ class MonitoringService:
                 "network_throughput_bytes": self._parse_val(network, 12450.0)
             }
         except TelemetryFetchException:
-            logger.info("Prometheus unreachable. Yielding cluster metrics mocks.")
-            # Fallback to realistic mock aggregates
+            logger.info("Prometheus unreachable. Returning empty metrics.")
             return {
-                "cpu_utilization": 50.0,
-                "memory_utilization": 65.5,
-                "disk_utilization": 55.2,
-                "network_throughput_bytes": 10540.0
+                "cpu_utilization": 0.0,
+                "memory_utilization": 0.0,
+                "disk_utilization": 0.0,
+                "network_throughput_bytes": 0.0
             }
 
     def get_performance_range(self, metric_type: str) -> List[List[float]]:
@@ -50,10 +49,8 @@ class MonitoringService:
                     result.append([float(val[0]), float(val[1])])
             return result
         except TelemetryFetchException:
-            logger.info(f"Prometheus range query failed for {metric_type}. Generating mock ranges.")
-            # Fallback mock range data: 12 intervals over last hour
-            now = int(time.time())
-            return [[float(now - (11 - i) * 300), float(50.0 + (i * 2.5) % 15)] for i in range(12)]
+            logger.info(f"Prometheus range query failed for {metric_type}. Returning empty range dataset.")
+            return []
 
     def _parse_val(self, response: Dict[str, Any], fallback: float) -> float:
         try:

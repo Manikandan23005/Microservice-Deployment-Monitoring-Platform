@@ -18,6 +18,7 @@ class PlatformSettings(BaseSettings):
     AI_PROVIDER: str = "ollama"
     OLLAMA_HOST: str = "http://localhost:11434"
     OPENAI_API_KEY: str = ""
+    OPENAI_BASE_URL: str = "https://api.openai.com/v1"
     GROQ_API_KEY: str = ""
     LMSTUDIO_HOST: str = "http://localhost:1234/v1"
     LLM_MODEL: str = "llama-3.3-70b-versatile"

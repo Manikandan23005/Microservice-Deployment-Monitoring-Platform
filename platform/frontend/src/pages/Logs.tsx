@@ -1,27 +1,35 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../services/api';
 import { LogLine } from '../types';
-import { Search, RefreshCw, TerminalSquare, Eye, EyeOff } from 'lucide-react';
+import { Search, RefreshCw, TerminalSquare, Eye } from 'lucide-react';
 
 const Logs: React.FC = () => {
-  const [selectedPod, setSelectedPod] = useState('payment-pod-99hgf');
+  const [podsList, setPodsList] = useState<string[]>([]);
+  const [selectedPod, setSelectedPod] = useState('');
   const [logs, setLogs] = useState<LogLine[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [liveRefresh, setLiveRefresh] = useState(true);
   
   const terminalEndRef = useRef<HTMLDivElement | null>(null);
 
-  const podsList = [
-    'gateway-pod-7dfg8',
-    'auth-pod-89dfg',
-    'orders-pod-54gh6',
-    'payment-pod-99hgf',
-    'users-pod-32sfg',
-    'notification-pod-22sfd'
-  ];
+  // Load pods list dynamically on mount
+  useEffect(() => {
+    api.getPods().then((pods) => {
+      const names = pods.map(p => p.name);
+      setPodsList(names);
+      if (names.length > 0) {
+        setSelectedPod(names[0]);
+      }
+    });
+  }, []);
 
   const fetchLogsData = async (silent = false) => {
+    if (!selectedPod) {
+      setLogs([]);
+      setLoading(false);
+      return;
+    }
     if (!silent) setLoading(true);
     try {
       const data = await api.getLogs(selectedPod, searchTerm || undefined);
@@ -39,14 +47,14 @@ const Logs: React.FC = () => {
 
   // Live Refresh interval: 3 seconds
   useEffect(() => {
-    if (!liveRefresh) return;
+    if (!liveRefresh || !selectedPod) return;
     const timer = setInterval(() => {
       fetchLogsData(true);
     }, 3000);
     return () => clearInterval(timer);
   }, [selectedPod, searchTerm, liveRefresh]);
 
-  // Auto-scroll to latest log lines when log indices update
+  // Auto-scroll to latest log lines when logs update
   useEffect(() => {
     if (terminalEndRef.current) {
       terminalEndRef.current.scrollIntoView({ behavior: 'smooth' });
@@ -66,11 +74,16 @@ const Logs: React.FC = () => {
           <select 
             value={selectedPod}
             onChange={(e) => setSelectedPod(e.target.value)}
-            className="px-4 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:outline-none focus:border-blue-500 text-sm font-semibold cursor-pointer"
+            disabled={podsList.length === 0}
+            className="px-4 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:outline-none focus:border-blue-500 text-sm font-semibold cursor-pointer disabled:opacity-50"
           >
-            {podsList.map(pod => (
-              <option key={pod} value={pod}>{pod}</option>
-            ))}
+            {podsList.length > 0 ? (
+              podsList.map(pod => (
+                <option key={pod} value={pod}>{pod}</option>
+              ))
+            ) : (
+              <option value="">No active pods</option>
+            )}
           </select>
 
           <div className="relative flex-1 md:w-64">
@@ -80,24 +93,27 @@ const Logs: React.FC = () => {
               placeholder="Search log lines..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:outline-none focus:border-blue-500 text-sm w-full font-medium"
+              disabled={podsList.length === 0}
+              className="pl-10 pr-4 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:outline-none focus:border-blue-500 text-sm w-full font-medium disabled:opacity-50"
             />
           </div>
 
           {/* Live toggle */}
           <button 
             onClick={() => setLiveRefresh(!liveRefresh)}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold transition-all ${
-              liveRefresh ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-slate-500/10 text-slate-400'
+            disabled={podsList.length === 0}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold transition-all disabled:opacity-50 ${
+              liveRefresh && podsList.length > 0 ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-slate-500/10 text-slate-400'
             }`}
           >
-            {liveRefresh ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+            <Eye className="h-3.5 w-3.5" />
             Live
           </button>
 
           <button 
             onClick={() => fetchLogsData()}
-            className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-500/5 transition-all bg-white dark:bg-slate-900"
+            disabled={!selectedPod}
+            className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-500/5 transition-all bg-white dark:bg-slate-900 disabled:opacity-50"
           >
             <RefreshCw className="h-4 w-4 text-slate-400" />
           </button>
@@ -110,9 +126,9 @@ const Logs: React.FC = () => {
           <div className="flex items-center justify-between border-b border-slate-800 pb-3 text-slate-500 text-xs select-none">
             <div className="flex items-center gap-2">
               <TerminalSquare className="h-4 w-4 text-emerald-500" />
-              <span>Aggregate console terminal stream: {selectedPod}</span>
+              <span>Aggregate console terminal stream: {selectedPod || 'None'}</span>
             </div>
-            {liveRefresh && <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping" />}
+            {liveRefresh && selectedPod && <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping" />}
           </div>
 
           {loading && logs.length === 0 ? (
@@ -133,7 +149,7 @@ const Logs: React.FC = () => {
             </div>
           ) : (
             <div className="flex items-center justify-center h-64 text-slate-600">
-              No matching log output lines found.
+              {selectedPod ? "No matching log output lines found." : "No active pods found. Select a pod to view logs."}
             </div>
           )}
         </div>

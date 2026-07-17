@@ -13,7 +13,7 @@ const AI: React.FC = () => {
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [provider, setProvider] = useState('ollama');
+  const [provider, setProvider] = useState('groq');
 
   const handleSend = async (text: string) => {
     if (!text.trim() || loading) return;

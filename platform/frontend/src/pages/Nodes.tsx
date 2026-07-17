@@ -36,7 +36,7 @@ const Nodes: React.FC = () => {
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold tracking-tight text-slate-800 dark:text-white">Cluster Worker Nodes</h2>
-      {loading ? <Loading /> : <Table columns={columns} data={nodes} />}
+      {loading ? <Loading /> : <Table columns={columns} data={nodes} emptyMessage="No nodes found." />}
     </div>
   );
 };
