@@ -12,8 +12,8 @@ async def chat_troubleshoot(request: Request, body: AIChatRequest):
     """Answers DevOps incident queries using a conversational AI interface."""
     request_id = getattr(request.state, "request_id", None)
     try:
-        response_text = ai_service.chat_troubleshoot(body.prompt, provider=body.provider)
-        return BaseResponse(success=True, data={"response": response_text}, request_id=request_id)
+        response_data = ai_service.chat_troubleshoot(body.prompt, provider=body.provider)
+        return BaseResponse(success=True, data=response_data, request_id=request_id)
     except DevOpsNexusException as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
@@ -22,7 +22,7 @@ async def analyze_incident(request: Request, body: AIIncidentRequest):
     """Performs detailed root cause analysis on container logs, metrics and events."""
     request_id = getattr(request.state, "request_id", None)
     try:
-        analysis_text = ai_service.analyze_incident(
+        analysis_data = ai_service.analyze_incident(
             pod_name=body.pod_name,
             namespace=body.namespace,
             logs=body.logs,
@@ -30,6 +30,6 @@ async def analyze_incident(request: Request, body: AIIncidentRequest):
             events=body.events,
             provider=body.provider
         )
-        return BaseResponse(success=True, data={"analysis": analysis_text}, request_id=request_id)
+        return BaseResponse(success=True, data=analysis_data, request_id=request_id)
     except DevOpsNexusException as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))

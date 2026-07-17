@@ -39,3 +39,12 @@ export interface LogLine {
   pod: string;
   message: string;
 }
+
+export interface AIResponse {
+  summary: string;
+  analysis: string;
+  evidence: string[];
+  recommendation: string[];
+  severity: string;
+  confidence: number;
+}

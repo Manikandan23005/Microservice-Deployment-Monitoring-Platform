@@ -1,4 +1,6 @@
 # --- Observability AI Analysis Service ---
+import re
+import json
 from typing import Dict, Any, Optional, List
 from app.clients.llm import llm_client
 from app.services.context_builder import context_builder
@@ -8,18 +10,46 @@ from app.core.logging import logger
 class AIService:
     """Orchestrates structured incident diagnostics by collecting live context and querying Groq models."""
 
-    def chat_troubleshoot(self, prompt: str, provider: Optional[str] = None) -> str:
-        """Handles general assistant troubleshooting conversations."""
+    def chat_troubleshoot(self, prompt: str, provider: Optional[str] = None) -> Dict[str, Any]:
+        """Handles conversational AI triage by pulling live context first and forcing a structured JSON output."""
+        context = context_builder.build_query_context(prompt)
+        
         system_prompt = (
-            "You are DevOps Nexus AI Assistant, an expert in Kubernetes, ArgoCD, Prometheus, "
-            "and DevOps platform engineering. Help the operator solve their cluster issue. "
-            "Structure your response in beautiful Markdown."
+            "You are DevOps Nexus AI Assistant, an enterprise AIOps engine. "
+            "You answer questions ONLY using the provided runtime context. Do not invent details.\n"
+            "If the context shows the cluster has no workloads or is empty, state so clearly.\n"
+            "Do not recommend kubectl commands or PromQL unless explicitly asked.\n"
+            "Do not provide tutorials.\n\n"
+            "Output your entire response as a single, valid JSON object conforming exactly to this schema:\n"
+            "{\n"
+            '  "summary": "Short 1-sentence summary of the current operational status.",\n'
+            '  "analysis": "Detailed explanation of the resource or query grounded solely in the context.",\n'
+            '  "evidence": ["Specific metric values, status phases, or logs from the context"],\n'
+            '  "recommendation": ["Actionable steps or recommendations for the operator"],\n'
+            '  "severity": "Info | Warning | Critical",\n'
+            '  "confidence": 100\n'
+            "}"
         )
+        
+        prompt_with_context = (
+            f"Runtime Context:\n{context}\n\n"
+            f"User Question:\n{prompt}\n"
+        )
+        
         try:
-            return llm_client.generate_chat_response(prompt, system_prompt=system_prompt)
+            raw_response = llm_client.generate_chat_response(prompt_with_context, system_prompt=system_prompt)
+            return self._parse_llm_json(raw_response)
         except Exception as e:
-            logger.warning(f"AI completions failed. Yielding offline chat mock: {str(e)}")
-            return self._get_chat_fallback(prompt)
+            logger.warning(f"AI chat troubleshooting failed: {str(e)}")
+            # Return an honest configuration or connection error structured response
+            return {
+                "summary": "AI Diagnostics Connection Offline",
+                "analysis": f"Failed to get live completions analysis: {str(e)}",
+                "evidence": ["Groq or OpenAI completions client request failed."],
+                "recommendation": ["Check GROQ_API_KEY settings inside your .env file."],
+                "severity": "Critical",
+                "confidence": 0
+            }
 
     def analyze_incident(
         self,
@@ -29,75 +59,69 @@ class AIService:
         metrics: Optional[Dict[str, Any]] = None,
         events: Optional[List[Dict[str, Any]]] = None,
         provider: Optional[str] = None
-    ) -> str:
+    ) -> Dict[str, Any]:
         """Builds context automatically and prompts LLM to generate structured triage outputs."""
-        # Automatically gather all live context details using ContextBuilder
         context = context_builder.build_incident_context(pod_name, namespace)
         
         system_prompt = (
-            "You are a DevOps Incident Triage Architect. Analyze the provided cluster context "
-            "and output your analysis in EXACTLY the following structured Markdown format:\n\n"
-            "### 1. Problem Summary\n"
-            "[Detailed summary of what the problem is]\n\n"
-            "### 2. Root Cause\n"
-            "[The identified root cause]\n\n"
-            "### 3. Evidence\n"
-            "[Evidence supporting this analysis, including logs, metrics anomalies, or events]\n\n"
-            "### 4. Affected Resources\n"
-            "[List of pods, services, or configurations impacted]\n\n"
-            "### 5. Recommended Fix\n"
-            "[Step-by-step commands or actions to remediate the issue]\n\n"
-            "### 6. Severity\n"
-            "[CRITICAL/WARNING/INFO]\n\n"
-            "### 7. Confidence\n"
-            "[HIGH/MEDIUM/LOW]"
+            "You are a DevOps Incident Triage Architect. Analyze the provided context "
+            "and output your entire analysis as a single, valid JSON object conforming exactly to this schema:\n"
+            "{\n"
+            '  "summary": "Short summary of the pod incident.",\n'
+            '  "analysis": "Root cause analysis explanation grounded in the logs and metrics.",\n'
+            '  "evidence": ["Specific errors, status logs, or restart counts from the context"],\n'
+            '  "recommendation": ["Remediation actions to fix the pod crash loop"],\n'
+            '  "severity": "Critical | Warning | Info",\n'
+            '  "confidence": 100\n'
+            "}"
         )
 
         prompt = (
+            f"Runtime Context:\n{context}\n\n"
             f"Diagnose the active incident for pod {pod_name} in namespace {namespace}.\n"
-            f"Here is the collected context object from our live infrastructure:\n\n"
-            f"{context}\n"
         )
 
         try:
-            return llm_client.generate_chat_response(prompt, system_prompt=system_prompt)
+            raw_response = llm_client.generate_chat_response(prompt, system_prompt=system_prompt)
+            return self._parse_llm_json(raw_response)
         except Exception as e:
-            logger.warning(f"Live LLM incident analysis failed. Yielding structured offline mock: {str(e)}")
-            return self._get_incident_fallback(pod_name, namespace)
+            logger.warning(f"Live LLM incident analysis failed: {str(e)}")
+            return {
+                "summary": "Incident Diagnostics Offline",
+                "analysis": f"Could not perform root cause analysis: {str(e)}",
+                "evidence": [f"Pod name: {pod_name}", f"Namespace: {namespace}"],
+                "recommendation": ["Verify that your Groq/OpenAI keys are active and configured in .env."],
+                "severity": "Critical",
+                "confidence": 0
+            }
 
-    def _get_chat_fallback(self, prompt: str) -> str:
-        lower = prompt.lower()
-        if "payment" in lower or "crash" in lower:
-            return (
-                "### DevOps Nexus AI Assistant (Offline Fallback)\n\n"
-                "It appears that your payment-service pod is in `CrashLoopBackOff` status.\n\n"
-                "**Potential Cause:** Settings verify: `STRIPE_API_KEY` contains invalid syntax or has expired.\n\n"
-                "**Remediation Suggestion:** Update your Helm secrets or env configuration files."
-            )
-        return (
-            "### DevOps Nexus AI Assistant (Offline Fallback)\n\n"
-            "I am monitoring your GitOps deployment clusters. How can I help you troubleshoot? "
-            "Supported queries: 'Why is payment-service restarting?', 'Show unhealthy pods'."
-        )
-
-    def _get_incident_fallback(self, pod_name: str, namespace: str) -> str:
-        return (
-            f"### 1. Problem Summary\n"
-            f"Pod `{pod_name}` in namespace `{namespace}` is encountering runtime errors.\n\n"
-            f"### 2. Root Cause\n"
-            f"Connection timeouts occurring during database setup.\n\n"
-            f"### 3. Evidence\n"
-            f"Log lines: 'Stripe api connections timed out' and 'Postgres connection refused'.\n\n"
-            f"### 4. Affected Resources\n"
-            f"- Pod: `{pod_name}`\n"
-            f"- Service: `payment-service`\n\n"
-            f"### 5. Recommended Fix\n"
-            f"1. Run `kubectl describe secret devops-nexus-secrets -n {namespace}`.\n"
-            f"2. Check stripe secret configuration syntax.\n\n"
-            f"### 6. Severity\n"
-            f"CRITICAL\n\n"
-            f"### 7. Confidence\n"
-            f"HIGH"
-        )
+    def _parse_llm_json(self, raw_text: str) -> Dict[str, Any]:
+        text = raw_text.strip()
+        
+        # Check if wrapped in markdown formatting (```json ... ```)
+        match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
+        if match:
+            text = match.group(1)
+            
+        try:
+            data = json.loads(text)
+            return {
+                "summary": str(data.get("summary", "")),
+                "analysis": str(data.get("analysis", "")),
+                "evidence": list(data.get("evidence", [])),
+                "recommendation": list(data.get("recommendation", [])),
+                "severity": str(data.get("severity", "Info")),
+                "confidence": int(data.get("confidence", 100))
+            }
+        except Exception as e:
+            logger.error(f"Failed to parse LLM response as JSON: {str(e)}. Raw content was:\n{raw_text}")
+            return {
+                "summary": "AIOps Triage Output Parsing Failed",
+                "analysis": f"The LLM completions response returned invalid JSON syntax: {str(e)}",
+                "evidence": [f"Raw text fragment: {raw_text[:200]}"],
+                "recommendation": ["Please retry the query or inspect LLM completions config logs."],
+                "severity": "Warning",
+                "confidence": 0
+            }
 
 ai_service = AIService()

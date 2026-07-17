@@ -2,7 +2,8 @@
 from unittest.mock import patch, MagicMock
 
 def test_ai_chat_completions(client):
-    with patch("app.clients.llm.llm_client.generate_chat_response", return_value="mock completions response"):
+    mock_json = '{"summary": "Test Summary", "analysis": "Test Analysis", "evidence": ["Test Evidence"], "recommendation": ["Test Action"], "severity": "Info", "confidence": 95}'
+    with patch("app.clients.llm.llm_client.generate_chat_response", return_value=mock_json):
         response = client.post(
             "/api/v1/ai/chat",
             json={"prompt": "why is the container crashing?", "provider": "groq"}
@@ -10,10 +11,13 @@ def test_ai_chat_completions(client):
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
-        assert data["data"]["response"] == "mock completions response"
+        assert data["data"]["summary"] == "Test Summary"
+        assert data["data"]["analysis"] == "Test Analysis"
+        assert data["data"]["severity"] == "Info"
 
 def test_ai_incident_analysis(client):
-    with patch("app.clients.llm.llm_client.generate_chat_response", return_value="mock diagnostics report"):
+    mock_json = '{"summary": "Pod Incident Summary", "analysis": "Detailed Crash Analysis", "evidence": ["OOMKilled"], "recommendation": ["Increase memory limits"], "severity": "Critical", "confidence": 100}'
+    with patch("app.clients.llm.llm_client.generate_chat_response", return_value=mock_json):
         response = client.post(
             "/api/v1/ai/analyze-incident",
             json={
@@ -28,7 +32,9 @@ def test_ai_incident_analysis(client):
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
-        assert "mock diagnostics report" in data["data"]["analysis"]
+        assert data["data"]["summary"] == "Pod Incident Summary"
+        assert data["data"]["analysis"] == "Detailed Crash Analysis"
+        assert data["data"]["severity"] == "Critical"
 
 def test_context_builder():
     from app.services.context_builder import context_builder

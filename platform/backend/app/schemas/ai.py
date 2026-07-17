@@ -15,3 +15,11 @@ class AIIncidentRequest(BaseModel):
     metrics: Dict[str, Any] = Field(default_factory=dict, description="CPU/Memory utilization gauges.")
     events: List[Dict[str, Any]] = Field(default_factory=list, description="Kubernetes lifecycle events list.")
     provider: Optional[str] = Field(None, description="Select client AI provider.")
+
+class AIStructuredResponse(BaseModel):
+    summary: str = Field(..., description="High-level summary of the operational status.")
+    analysis: str = Field(..., description="Deep-dive root cause analysis grounded in live telemetry.")
+    evidence: List[str] = Field(default_factory=list, description="Concrete metrics, logs, or events logs serving as evidence.")
+    recommendation: List[str] = Field(default_factory=list, description="Actionable remediation steps to fix the issue.")
+    severity: str = Field(..., description="Target severity indicator: Info, Warning, Critical.")
+    confidence: int = Field(..., description="Analysis confidence percentage score between 0 and 100.")

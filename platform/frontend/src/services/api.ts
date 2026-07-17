@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { AppInfo, PodInfo, NodeInfo, AlertInfo, LogLine } from '../types';
+import { AppInfo, PodInfo, NodeInfo, AlertInfo, LogLine, AIResponse } from '../types';
 
 // API base configurations parsed from env or default local dev
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -174,16 +174,30 @@ export const api = {
     return [];
   },
 
-  askAI: async (prompt: string, provider?: string): Promise<string> => {
+  askAI: async (prompt: string, provider?: string): Promise<AIResponse> => {
     try {
       const response = await apiClient.post('/api/v1/ai/chat', { prompt, provider });
       if (response.data && response.data.success) {
-        return response.data.data.response;
+        return response.data.data;
       }
     } catch (e: any) {
       const errMsg = e.response?.data?.detail || e.message || "Unknown error";
-      return `### AI Assistant Connection Failed\n\nFailed to communicate with the AI diagnostics API.\n\n**Reason:** ${errMsg}\n\n*Please ensure that your \`.env\` configurations are loaded correctly and that the target provider's api keys are set.*`;
+      return {
+        summary: "AI Diagnostics Connection Offline",
+        analysis: `Failed to communicate with the AIOps diagnostics engine API: ${errMsg}`,
+        evidence: ["API connection failed or timed out"],
+        recommendation: ["Please ensure your .env configurations are active and API keys are set."],
+        severity: "Critical",
+        confidence: 0
+      };
     }
-    return "### AI Assistant Connection Failed\n\nFailed to receive a valid response from the backend service.";
+    return {
+      summary: "AI Diagnostics Failed",
+      analysis: "Did not receive a valid structured response from the backend service.",
+      evidence: ["Empty response payload"],
+      recommendation: ["Please retry the query or review backend orchestrator logs."],
+      severity: "Warning",
+      confidence: 0
+    };
   }
 };
