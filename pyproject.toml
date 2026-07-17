@@ -43,3 +43,6 @@ line-length = 88
 target-version = "py313"
 lint.select = ["E", "F", "W", "I"]
 lint.ignore = []
+
+[tool.pytest.ini_options]
+testpaths = ["platform/backend/tests"]
