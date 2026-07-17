@@ -11,10 +11,11 @@ const Overview: React.FC = () => {
   const [metrics, setMetrics] = useState({ cpu_utilization: 0, memory_utilization: 0, disk_utilization: 0, network_throughput_bytes: 0 });
   const [gitDetails, setGitDetails] = useState({ owner: '', repository: '', branches: [] as string[], latest_commits: [] as any[] });
   const [namespace, setNamespace] = useState('devops-nexus-prod');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchDashboardData = async (silent = false) => {
+    if (loading || refreshing) return;
     if (!silent) setLoading(true);
     else setRefreshing(true);
     

@@ -25,6 +25,7 @@ const Logs: React.FC = () => {
   }, []);
 
   const fetchLogsData = async (silent = false) => {
+    if (loading) return;
     if (!selectedPod) {
       setLogs([]);
       setLoading(false);
