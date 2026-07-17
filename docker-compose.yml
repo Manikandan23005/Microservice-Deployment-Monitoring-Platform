@@ -3,6 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     ports:
       - "8000:8000"
     environment:
@@ -13,6 +14,9 @@ services:
       - AI_PROVIDER=groq
     env_file:
       - .env
+    volumes:
+      - ./platform/backend/app:/app/app
+      - ./platform/shared:/app/platform/shared
     depends_on:
       - redis
 
@@ -26,6 +30,9 @@ services:
       - "3000:3000"
     environment:
       - VITE_API_URL=http://localhost:8000
+    volumes:
+      - ./platform/frontend:/app
+      - /app/node_modules
 
   redis:
     image: redis:7-alpine
