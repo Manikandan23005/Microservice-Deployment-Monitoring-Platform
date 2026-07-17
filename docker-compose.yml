@@ -10,13 +10,11 @@ services:
       - KUBERNETES_SERVICE_HOST=kubernetes.default.svc
       - PROMETHEUS_URL=http://prometheus-service:9090
       - LOKI_URL=http://loki-service:3100
-      - AI_PROVIDER=ollama
-      - OLLAMA_HOST=http://ollama-service:11434
+      - AI_PROVIDER=groq
     env_file:
       - .env
     depends_on:
       - redis
-      - ollama-service
 
   platform-frontend:
     # --- Vite React App Server stub ---
@@ -32,13 +30,3 @@ services:
     image: redis:7-alpine
     ports:
       - "6379:6379"
-
-  ollama-service:
-    image: ollama/ollama:latest
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama-data:/root/.ollama
-
-volumes:
-  ollama-data:
