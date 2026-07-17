@@ -21,6 +21,7 @@ services:
     build:
       context: ./platform/frontend
       dockerfile: ../../applications/frontend/Dockerfile # Reuse node builder logic
+    command: npm run dev -- --host --port 3000
     ports:
       - "3000:3000"
     environment:
