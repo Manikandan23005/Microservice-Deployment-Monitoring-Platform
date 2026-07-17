@@ -11,6 +11,29 @@ const apiClient = axios.create({
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export const api = {
+  getNamespaces: async (): Promise<any[]> => {
+    try {
+      const response = await apiClient.get('/api/v1/k8s/namespaces');
+      if (response.data && response.data.success) {
+        return response.data.data.map((ns: any) => ({
+          name: ns.name,
+          status: ns.status,
+          podsCount: 0,
+          cpuQuota: 'No Quota',
+          memoryQuota: 'No Quota'
+        }));
+      }
+    } catch {
+      // Fallback
+    }
+    return [
+      { name: 'devops-nexus-dev', status: 'Active', podsCount: 3, cpuQuota: '2 cores', memoryQuota: '4Gi' },
+      { name: 'devops-nexus-qa', status: 'Active', podsCount: 2, cpuQuota: '4 cores', memoryQuota: '8Gi' },
+      { name: 'devops-nexus-stage', status: 'Active', podsCount: 3, cpuQuota: '8 cores', memoryQuota: '16Gi' },
+      { name: 'devops-nexus-prod', status: 'Active', podsCount: 4, cpuQuota: '16 cores', memoryQuota: '32Gi' }
+    ];
+  },
+
   getApplications: async (): Promise<AppInfo[]> => {
     try {
       const response = await apiClient.get('/api/v1/gitops/argocd/applications');

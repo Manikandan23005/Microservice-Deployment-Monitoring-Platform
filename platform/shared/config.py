@@ -20,6 +20,7 @@ class PlatformSettings(BaseSettings):
     OPENAI_API_KEY: str = ""
     GROQ_API_KEY: str = ""
     LMSTUDIO_HOST: str = "http://localhost:1234/v1"
+    LLM_MODEL: str = "llama-3.3-70b-versatile"
     
     # Caching
     REDIS_URL: str = "redis://localhost:6379/0"

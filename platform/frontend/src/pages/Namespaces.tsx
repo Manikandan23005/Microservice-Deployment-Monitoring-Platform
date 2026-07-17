@@ -1,20 +1,33 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Table } from '../components/Table';
+import { Loading } from '../components/Loading';
+import { api } from '../services/api';
+
+interface NamespaceItem {
+  name: string;
+  status: string;
+  podsCount: number;
+  cpuQuota: string;
+  memoryQuota: string;
+}
 
 const Namespaces: React.FC = () => {
-  const namespaces = [
-    { name: 'devops-nexus-dev', status: 'Active', podsCount: 3, cpuQuota: '2 cores', memoryQuota: '4Gi' },
-    { name: 'devops-nexus-qa', status: 'Active', podsCount: 2, cpuQuota: '4 cores', memoryQuota: '8Gi' },
-    { name: 'devops-nexus-stage', status: 'Active', podsCount: 3, cpuQuota: '8 cores', memoryQuota: '16Gi' },
-    { name: 'devops-nexus-prod', status: 'Active', podsCount: 4, cpuQuota: '16 cores', memoryQuota: '32Gi' }
-  ];
+  const [namespaces, setNamespaces] = useState<NamespaceItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.getNamespaces().then((data) => {
+      setNamespaces(data);
+      setLoading(false);
+    });
+  }, []);
 
   const columns = [
     { header: 'Namespace Name', accessor: 'name' as const },
     {
       header: 'Status',
-      accessor: (item: typeof namespaces[0]) => (
-        <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-500">
+      accessor: (item: NamespaceItem) => (
+        <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-500">
           {item.status}
         </span>
       )
@@ -27,7 +40,7 @@ const Namespaces: React.FC = () => {
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold tracking-tight text-slate-800 dark:text-white">Kubernetes Cluster Namespaces</h2>
-      <Table columns={columns} data={namespaces} />
+      {loading ? <Loading /> : <Table columns={columns} data={namespaces} />}
     </div>
   );
 };
