@@ -114,23 +114,60 @@ FastAPI API Gateway (Backend client orchestrator)
 
 ---
 
-## ⚙️ Installation
+## ⚙️ Installation & Running Guides
 
-To initialize the platform locally using Docker Compose:
+Refer to [INSTALLATION.md](INSTALLATION.md) for detailed prerequisites. Below are the quick guides:
 
+### 1. Running Locally (Development Mode)
+To run the components bare-metal for development:
+
+**Backend Setup:**
 ```bash
-# Clone the repository
-git clone https://github.com/Manikandan23005/Microservice-Deployment-Monitoring-Platform.git
-cd Microservice-Deployment-Monitoring-Platform
+# Configure local virtual environment
+poetry install
 
-# Configure environment settings
-cp .env.example .env
+# Set local configurations
+export PORT=8000
+export AI_PROVIDER=ollama
+export REDIS_URL=redis://localhost:6379/0
 
-# Spin up platform, databases, and Ollama stubs
-docker compose up --build -d
+# Start FastAPI server
+poetry run uvicorn platform.backend.app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-Refer to [INSTALLATION.md](INSTALLATION.md) for detailed guidelines.
+**Frontend Setup:**
+```bash
+cd platform/frontend
+npm install
+npm run dev
+```
+Open [http://localhost:5173](http://localhost:5173) in your browser.
+
+---
+
+### 2. Running via Docker Compose
+To build and start the entire multi-service orchestrator:
+```bash
+# Copy and verify environment configs
+cp .env.example .env
+
+# Spin up platform containers
+docker compose up --build -d
+```
+Access the dashboard on port `3000` and Swagger docs on `http://localhost:8000/docs`.
+
+---
+
+### 3. Running on Kubernetes
+To deploy the platform workloads to your cluster (e.g., Minikube or Kind):
+```bash
+# Deploy Helm chart releases
+helm upgrade --install devops-nexus ./helm/charts/devops-nexus --namespace devops-nexus --create-namespace
+
+# Port forward backend service
+kubectl port-forward svc/devops-nexus-backend 8000:8000 -n devops-nexus
+```
+
 
 ---
 
