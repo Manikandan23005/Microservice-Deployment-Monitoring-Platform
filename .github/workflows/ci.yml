@@ -1,4 +1,4 @@
-name: CI/CD Pipeline
+name: DevOps Nexus CI Pipeline
 
 on:
   push:
@@ -7,93 +7,32 @@ on:
     branches: [ main ]
 
 jobs:
-  checkout:
-    name: Checkout Source
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
   test:
-    name: Application Unit Tests
-    needs: checkout
     runs-on: ubuntu-latest
-    steps:
-      - name: Setup Runner Environment
-        run: echo "Initializing test runners..."
-      # TODO: Implement test discovery and runs across applications/*/
-      # - name: Run Python Tests
-      #   run: |
-      #     cd applications/auth && pip install -r requirements.txt && pytest
-      # - name: Run Frontend JS Tests
-      #   run: |
-      #     cd applications/frontend && npm ci && npm test
 
-  docker:
-    name: Docker Build Validation
-    needs: test
-    runs-on: ubuntu-latest
     steps:
-      - name: Verify Dockerfiles
-        run: |
-          echo "Linting Dockerfiles..."
-          # TODO: Integrate hadolint to analyze container constructs
+    - name: Check out repository code
+      uses: actions/checkout@v4
 
-  scan:
-    name: Security Vulnerability Scan
-    needs: docker
-    runs-on: ubuntu-latest
-    steps:
-      - name: Run Trivy Scan
-        run: |
-          echo "Scanning images for vulnerabilities..."
-          # TODO: Run aquasecurity/trivy-action against image stubs
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
 
-  push:
-    name: Publish Container Images
-    needs: scan
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    steps:
-      - name: Log in to Registry
-        run: echo "Logging in to GHCR/Docker Hub..."
-      - name: Build and Push
-        run: |
-          echo "Pushing images tagged with commit SHA..."
-          # TODO: docker build -t devopsnexus/gateway:${{ github.sha }} .
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        virtualenvs-create: true
+        virtualenvs-in-project: true
 
-  helm:
-    name: Helm Chart Validation
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - name: Helm Lint
-        run: |
-          echo "Linting chart files..."
-          helm lint ./helm
-      - name: Dry-run Template Render
-        run: |
-          echo "Verifying chart dry-run rendering..."
-          helm template devops-nexus ./helm
+    - name: Install dependencies
+      run: poetry install --no-interaction
 
-  argocd:
-    name: GitOps Promotion
-    needs: [push, helm]
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    steps:
-      - name: Promote Deployment Configuration
-        run: |
-          echo "Updating Helm chart values-dev.yaml tag revisions..."
-          # TODO: Modify tag field using yq and commit changes to trigger ArgoCD syncs
+    - name: Run code formatting check (Black)
+      run: poetry run black --check .
 
-  notify:
-    name: Notification Dispatch
-    needs: [argocd]
-    runs-on: ubuntu-latest
-    if: always()
-    steps:
-      - name: Send Slack Alert
-        run: |
-          echo "Dispatching deployment update notification..."
-          # TODO: Trigger slack webhook alerts or dispatch emails
+    - name: Run code linter check (Ruff)
+      run: poetry run ruff check .
+
+    - name: Run Pytest test suite
+      run: poetry run pytest

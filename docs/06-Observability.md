@@ -1,27 +1,16 @@
-# Observability Stack Guide
+# Observability & Monitoring
 
-## Overview
-This document describes how DevOps Nexus integrates with the cluster observability stack (Prometheus, Loki, Alertmanager).
+This document details the telemetry monitoring integrations implemented in the DevOps Nexus platform.
 
-## Goals
-- Aggregate metrics and logs from all running microservices.
-- Retrieve data programmatically via our unified FastAPI backend observability services.
+## Prometheus Integration
+The backend communicates with Prometheus HTTP endpoint (`PROMETHEUS_URL`) to execute instant vector and range queries.
+- **Range Queries:** Implemented in `platform/backend/app/clients/prometheus.py`, query CPU and Memory utilization data points.
+- **Aggregations:** The services calculate cluster-wide averages and return clean JSON range arrays.
 
-## Implementation Plan
-1. **Metrics Collection:**
-   - Prometheus queries pod performance status.
-   - FastAPI backend queries Prometheus REST endpoints (`/api/v1/query`) using `httpx` to parse and serialize measurements.
-2. **Log Aggregation:**
-   - Loki aggregates container logs.
-   - FastAPI backend endpoints query Loki API streams (`/loki/api/v1/query_range`) and return them as a unified text socket to the React client logs console.
-3. **Alertmanager Webhooks:**
-   - Alertmanager posts firing alerts directly to the FastAPI path `/api/v1/alerts`.
-   - The platform receives alerts, gathers Loki logs around the alert timestamp, and submits the context to the AI diagnostics queue.
+## Loki Integration
+Container logs are streamed from Grafana Loki HTTP endpoint (`LOKI_URL`).
+- **Search Filters:** Supports real-time text parsing search and namespace log filtering.
+- **Fallbacks:** In the absence of an active Loki instance, the backend returns simulated server output lines.
 
-## Future Work
-* **OpenTelemetry Distributed Tracing:** Implement tracing endpoints in FastAPI to visualize trace trees in the React UI.
-* **WebSocket Streams:** Use WebSockets for streaming logs from Loki dynamically.
-
-## References
-* [Prometheus API Documentation](https://prometheus.io/docs/prometheus/latest/querying/api/)
-* [Loki HTTP API Reference](https://grafana.com/docs/loki/latest/reference/api/)
+## Frontend Charts
+The dashboard UI renders these metrics ranges using custom SVG vectors paths (`<path d="..." />`) to plot active memory utilization sparklines over the last 1 hour without relying on heavy third-party plotting libraries.

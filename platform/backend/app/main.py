@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.settings import settings
 from app.core.logging import setup_logging, RequestLoggingMiddleware
 from app.middleware import RequestIDMiddleware, ProcessingTimeMiddleware, GlobalExceptionMiddleware
+from app.middleware.rate_limit import RateLimitMiddleware
 from app.routers import root_router, health_router, version_router
 from app.routers.k8s import router as k8s_router
 from app.routers.monitoring import router as monitoring_router
@@ -37,6 +38,7 @@ app.add_middleware(
 app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(ProcessingTimeMiddleware)
 app.add_middleware(RequestIDMiddleware)
+app.add_middleware(RateLimitMiddleware)
 app.add_middleware(GlobalExceptionMiddleware)
 
 # 3. Mount Endpoint Routers

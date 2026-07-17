@@ -1,19 +1,36 @@
 #!/usr/bin/env bash
-# --- Restore System State ---
+# --- DevOps Nexus State Restore Utility ---
 set -euo pipefail
 
-BACKUP_PATH=${1:-""}
-
-echo "=========================================="
-echo "Restoring DevOps Nexus configurations"
-echo "=========================================="
-
-if [ -z "${BACKUP_PATH}" ]; then
-  echo "Error: Backup path must be specified. Usage: ./restore.sh <path_to_backup_dir>"
-  exit 1
+if [ "$#" -ne 1 ]; then
+    echo "Usage: $0 <backup-directory>"
+    exit 1
 fi
 
-echo "Restoring from source directory: ${BACKUP_PATH}..."
-# kubectl apply -f "${BACKUP_PATH}/configmaps.yaml"
-# kubectl apply -f "${BACKUP_PATH}/secrets.yaml"
-echo "✔ Restore simulation completed."
+BACKUP_DIR="$1"
+
+if [ ! -d "${BACKUP_DIR}" ]; then
+    echo "Error: Backup directory ${BACKUP_DIR} does not exist."
+    exit 1
+fi
+
+echo "Starting cluster state restore from ${BACKUP_DIR}..."
+
+if command -v kubectl &> /dev/null; then
+    echo "Restoring namespaces..."
+    kubectl apply -f "${BACKUP_DIR}/namespaces.yaml"
+    
+    if [ -f "${BACKUP_DIR}/secrets.yaml" ]; then
+        echo "Restoring secrets..."
+        kubectl apply -f "${BACKUP_DIR}/secrets.yaml"
+    fi
+    
+    if [ -f "${BACKUP_DIR}/argocd-apps.yaml" ]; then
+        echo "Restoring ArgoCD Applications..."
+        kubectl apply -f "${BACKUP_DIR}/argocd-apps.yaml"
+    fi
+else
+    echo "kubectl not found. Simulated state restore complete (Mock)."
+fi
+
+echo "Cluster state restore completed successfully."

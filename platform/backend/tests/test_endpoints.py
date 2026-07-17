@@ -17,12 +17,15 @@ def test_health_liveness_endpoint(client):
     assert json_data["data"]["ready"] is True
 
 def test_health_readiness_endpoint(client):
-    response = client.get("/ready")
-    assert response.status_code == 200
-    json_data = response.json()
-    assert json_data["success"] is True
-    assert json_data["data"]["status"] == "healthy"
-    assert json_data["data"]["ready"] is True
+    from unittest.mock import patch
+    with patch("app.clients.kubernetes.k8s_client.list_namespaces", return_value=[]), \
+         patch("app.core.cache.cache_client.ping", return_value=True):
+        response = client.get("/ready")
+        assert response.status_code == 200
+        json_data = response.json()
+        assert json_data["success"] is True
+        assert json_data["data"]["status"] == "healthy"
+        assert json_data["data"]["ready"] is True
 
 def test_version_endpoint(client):
     response = client.get("/version")

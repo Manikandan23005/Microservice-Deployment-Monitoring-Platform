@@ -3,28 +3,17 @@
 ## Overview
 This document details the architecture of the **DevOps Nexus** unified core platform, focusing on decoupled microservice coordination, centralized observability routing, and GitOps controls.
 
-## Goals
-- Detail platform backend endpoints division.
-- Document inter-component API client connections (ArgoCD, Kubernetes API, Prometheus, Loki, AI).
-
-## Implementation Plan
-1. **API Ingress routing:**
-   - Client access occurs via the React TypeScript UI.
-   - React UI communicates directly with the FastAPI backend exposed on port 8000.
-2. **FastAPI Client Connectors:**
-   - **`services/k8s_client.py`:** Handles cluster API interactions using the official Kubernetes Python Client library.
-   - **`services/prometheus_client.py` & `loki_client.py`:** Telemetry scrapers gathering metrics/logs.
-   - **`services/ai_engine.py`:** Integrates pluggable AI models.
-3. **Shared Common Core Configurations (`platform/shared/`):**
-   - Config parameters are parsed dynamically via `shared/config.py` Pydantic models.
-   - Common request/response schemas are declared in `shared/models.py`.
-4. **Pluggable AI Integration:**
-   - Core API backend routes incident contexts dynamically to local Ollama nodes or external APIs depending on environment settings.
-
-## Future Work
-* **Kubernetes Webhook controller:** Setup controllers to trigger active callbacks into FastAPI on deployment failure events.
-* **Redis caching layers:** Configure Redis cache hooks to speed up repeated queries to cluster states.
-
-## References
-* [Twelve-Factor App Methodology](https://12factor.net/)
-* [Kubernetes Python Client Reference](https://github.com/kubernetes-client/python)
+## Design Decisions
+1. **Frontend-to-Backend API Coordination:**
+   - React TypeScript UI on port 3000 queries the FastAPI REST backend on port 8000.
+2. **Kubernetes Integration Client:**
+   - Uses the official Kubernetes Python Client library (`kubernetes`) to list namespaces, describe active pods, scale deployments, and check cluster health.
+3. **Telemetry & Observability Scrapers:**
+   - Prometheus and Loki client connectors fetch real-time workload stats (CPU, Memory, Disk) and log streams.
+4. **GitOps synchronizations:**
+   - Wraps the GitHub REST API to trace workflows and ArgoCD server REST routes to sync and roll back applications.
+5. **AI Assistant Completions:**
+   - Supports local models (Ollama/LM Studio) and remote models (OpenAI/Groq).
+6. **Hardened Production Controls:**
+   - Uses Redis to support rate-limiting and metadata caching.
+   - Enforces RBAC permissions through JWT token validators.
