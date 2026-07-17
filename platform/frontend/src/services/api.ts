@@ -5,7 +5,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 5000,
+  timeout: 10000, // Increase timeout for slow AI completions
 });
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -205,7 +205,16 @@ export const api = {
     ];
   },
 
-  askAI: async (prompt: string): Promise<string> => {
+  askAI: async (prompt: string, provider?: string): Promise<string> => {
+    try {
+      const response = await apiClient.post('/api/v1/ai/chat', { prompt, provider });
+      if (response.data && response.data.success) {
+        return response.data.data.response;
+      }
+    } catch {
+      // Fallback
+    }
+    
     await sleep(1000);
     const lowerPrompt = prompt.toLowerCase();
     if (lowerPrompt.includes('payment') || lowerPrompt.includes('restarting') || lowerPrompt.includes('crashloopbackoff')) {

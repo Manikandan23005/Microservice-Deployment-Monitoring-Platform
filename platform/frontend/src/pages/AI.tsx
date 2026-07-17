@@ -13,6 +13,7 @@ const AI: React.FC = () => {
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [provider, setProvider] = useState('ollama');
 
   const handleSend = async (text: string) => {
     if (!text.trim() || loading) return;
@@ -22,7 +23,7 @@ const AI: React.FC = () => {
     setLoading(true);
 
     try {
-      const response = await api.askAI(text);
+      const response = await api.askAI(text, provider);
       setMessages(prev => [...prev, { sender: 'ai', text: response }]);
     } catch {
       setMessages(prev => [...prev, { sender: 'ai', text: 'Error connecting to the AI diagnostic service.' }]);
@@ -39,12 +40,26 @@ const AI: React.FC = () => {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 flex flex-col h-[calc(100vh-10rem)]">
-      <div className="flex items-center gap-3">
-        <h2 className="text-2xl font-bold tracking-tight text-slate-800 dark:text-white">AI Incident Assistant</h2>
-        <div className="px-2.5 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-500 text-[10px] font-bold flex items-center gap-1.5 uppercase">
-          <Sparkles className="h-3 w-3" />
-          Active
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <h2 className="text-2xl font-bold tracking-tight text-slate-800 dark:text-white">AI Incident Assistant</h2>
+          <div className="px-2.5 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-500 text-[10px] font-bold flex items-center gap-1.5 uppercase">
+            <Sparkles className="h-3 w-3" />
+            Active
+          </div>
         </div>
+
+        {/* Pluggable Provider Selection */}
+        <select 
+          value={provider}
+          onChange={(e) => setProvider(e.target.value)}
+          className="px-4 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:outline-none focus:border-blue-500 text-sm font-semibold cursor-pointer"
+        >
+          <option value="ollama">Ollama (Local)</option>
+          <option value="openai">OpenAI (GPT-4)</option>
+          <option value="groq">Groq (Llama-3)</option>
+          <option value="lmstudio">LM Studio (Local)</option>
+        </select>
       </div>
 
       {/* Preset Command Buttons */}
@@ -97,7 +112,7 @@ const AI: React.FC = () => {
               <span className="h-1.5 w-1.5 bg-slate-400 rounded-full animate-bounce" />
               <span className="h-1.5 w-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:0.2s]" />
               <span className="h-1.5 w-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:0.4s]" />
-              Analyzing Loki log indices...
+              Querying {provider} engine...
             </div>
           </div>
         )}
@@ -110,7 +125,7 @@ const AI: React.FC = () => {
       >
         <input
           type="text"
-          placeholder="Ask AI incident questions..."
+          placeholder={`Type a command for the ${provider} engine...`}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           className="flex-1 px-4 py-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:outline-none focus:border-blue-500 text-sm"
