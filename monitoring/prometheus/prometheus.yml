@@ -12,9 +12,10 @@ scrape_configs:
       - role: apiserver
 
   - job_name: 'devops-nexus-microservices'
-    metrics_path: '/healthz' # TODO: Update to /metrics once endpoints are active
+    metrics_path: '/metrics'
     kubernetes_sd_configs:
       - role: pod
         namespaces:
           names:
             - devops-nexus
+            - devops-nexus-prod

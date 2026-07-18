@@ -1,0 +1,33 @@
+global:
+  environment: "prod"
+serviceName: "products"
+replicaCount: 2
+containerPort: 8000
+image:
+  repository: "products"
+  tag: "latest"
+  pullPolicy: "Never"
+service:
+  type: "ClusterIP"
+  port: 8000
+resources:
+  limits:
+    cpu: "500m"
+    memory: "512Mi"
+  requests:
+    cpu: "100m"
+    memory: "128Mi"
+hpa:
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPU: 75
+ingress:
+  enabled: false
+  className: "nginx"
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+  hosts:
+    - host: "products.devopsnexus.prod"
+      paths:
+        - path: "/"
+          pathType: "Prefix"

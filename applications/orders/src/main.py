@@ -1,27 +1,39 @@
-# --- Orders Service API Skeleton ---
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+import httpx
+from .telemetry import instrument_app
 
-app = FastAPI(title="Orders Service", version="0.1.0")
+app = FastAPI(title="Orders Service")
+instrument_app(app, "orders-service")
 
-class OrderItem(BaseModel):
+class OrderRequest(BaseModel):
     product_id: int
     quantity: int
 
-class OrderRequest(BaseModel):
-    user_id: int
-    items: list[OrderItem]
-
-@app.get("/healthz")
-def health_check():
-    return {"status": "healthy", "service": "orders"}
-
 @app.post("/orders")
 def create_order(request: OrderRequest):
-    # TODO: Validate inventory with products service, authorize with users, verify with payments
-    return {
-        "order_id": 5001,
-        "status": "pending_payment",
-        "user_id": request.user_id,
-        "items": request.items
-    }
+    try:
+        response = httpx.get(f"http://products-service:8000/products/{request.product_id}", timeout=2.0)
+        if response.status_code != 200:
+            raise HTTPException(status_code=400, detail="Invalid product ID")
+        product = response.json()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to reach products service: {str(e)}")
+        
+    total_price = product["price"] * request.quantity
+    
+    try:
+        pay_resp = httpx.post("http://payment-service:8000/pay", json={"amount": total_price}, timeout=2.0)
+        payment_status = pay_resp.json().get("status", "failed")
+    except Exception as e:
+        payment_status = "failed"
+        
+    try:
+        httpx.post("http://notification-service:8000/notify", json={"message": f"Order created. Status: {payment_status}"}, timeout=2.0)
+    except Exception:
+        pass
+        
+    if payment_status != "success":
+        raise HTTPException(status_code=402, detail="Payment verification failed")
+        
+    return {"order_status": "created", "total_price": total_price}

@@ -3,15 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "echo 'Starting dev server...' && node src/index.js",
-    "build": "echo 'Building static assets...'",
-    "start": "node src/index.js",
-    "test": "node tests/index.test.js"
+    "start": "node src/index.js"
   },
   "dependencies": {
-    "express": "^4.19.2"
-  },
-  "devDependencies": {
-    "jest": "^29.7.0"
+    "express": "^4.19.2",
+    "prom-client": "^15.1.0"
   }
 }

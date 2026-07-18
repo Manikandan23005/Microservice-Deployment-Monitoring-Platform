@@ -1,26 +1,13 @@
-# --- Notification Service API Skeleton ---
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from pydantic import BaseModel
+from .telemetry import instrument_app
 
-app = FastAPI(title="Notification Service", version="0.1.0")
+app = FastAPI(title="Notification Service")
+instrument_app(app, "notification-service")
 
-class NotificationRequest(BaseModel):
-    recipient: str
-    subject: str
+class NotifyRequest(BaseModel):
     message: str
-    channel: str # "email" or "sms"
 
-@app.get("/healthz")
-def health_check():
-    return {"status": "healthy", "service": "notification"}
-
-@app.post("/send")
-def send_notification(request: NotificationRequest):
-    # TODO: Connect to email SMTP server or SMS service provider API
-    if request.recipient:
-        return {
-            "status": "queued",
-            "channel": request.channel,
-            "recipient": request.recipient
-        }
-    raise HTTPException(status_code=400, detail="Invalid recipient address")
+@app.post("/notify")
+def notify(request: NotifyRequest):
+    return {"status": "dispatched", "notification_sent": request.message}

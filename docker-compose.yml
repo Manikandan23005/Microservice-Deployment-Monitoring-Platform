@@ -4,17 +4,17 @@ services:
       context: .
       dockerfile: Dockerfile
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-    ports:
-      - "8000:8000"
+    network_mode: "host"
     environment:
       - PORT=8000
-      - KUBERNETES_SERVICE_HOST=kubernetes.default.svc
       - AI_PROVIDER=groq
     env_file:
       - .env
     volumes:
       - ./platform/backend/app:/app/app
       - ./platform/shared:/app/platform/shared
+      - /home/satoru/.kube:/root/.kube
+      - /home/satoru/.minikube:/home/satoru/.minikube
     depends_on:
       - redis
 

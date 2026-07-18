@@ -1,24 +1,9 @@
-# --- Build Stage ---
-FROM node:20-alpine AS builder
+FROM node:18-alpine
 WORKDIR /app
-COPY package*.json ./
-# TODO: Install production dependencies
-RUN npm ci
+COPY package.json ./
+RUN npm install --only=production
 COPY . .
-# TODO: Implement build logic
-# RUN npm run build
-
-# --- Production Stage ---
-FROM node:20-alpine AS runner
-WORKDIR /app
-ENV NODE_ENV=production
-
-# TODO: Add non-privileged execution security controls
-# RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
-# USER nextjs
-
-COPY --from=builder /app ./
-
 EXPOSE 3000
 ENV PORT=3000
+HEALTHCHECK --interval=15s --timeout=3s --start-period=5s --retries=3 CMD node -e "require('http').get('http://localhost:3000/health', (r) => { if (r.statusCode === 200) process.exit(0); else process.exit(1); })"
 CMD ["npm", "start"]

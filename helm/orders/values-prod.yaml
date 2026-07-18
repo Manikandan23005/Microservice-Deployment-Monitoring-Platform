@@ -1,0 +1,33 @@
+global:
+  environment: "prod"
+serviceName: "orders"
+replicaCount: 2
+containerPort: 8000
+image:
+  repository: "orders"
+  tag: "latest"
+  pullPolicy: "Never"
+service:
+  type: "ClusterIP"
+  port: 8000
+resources:
+  limits:
+    cpu: "500m"
+    memory: "512Mi"
+  requests:
+    cpu: "100m"
+    memory: "128Mi"
+hpa:
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPU: 75
+ingress:
+  enabled: false
+  className: "nginx"
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+  hosts:
+    - host: "orders.devopsnexus.prod"
+      paths:
+        - path: "/"
+          pathType: "Prefix"

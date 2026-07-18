@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: gateway-dev
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: '/home/satoru/Projects/Microservice-Deployment-Monitoring-Platform'
+    targetRevision: HEAD
+    path: helm/gateway
+    helm:
+      valueFiles:
+        - values-dev.yaml
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: devops-nexus-dev
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

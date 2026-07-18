@@ -1,14 +1,31 @@
-// --- Frontend Entrypoint Stub ---
 const express = require('express');
+const path = require('path');
+const promClient = require('prom-client');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.get('/', (req, res) => {
-  res.json({
-    status: "online",
-    service: "frontend-application-skeleton",
-    message: "Welcome to the DevOps Nexus Microservice Frontend portal."
-  });
+const register = new promClient.Registry();
+promClient.collectDefaultMetrics({ register });
+
+app.use((req, res, next) => {
+  console.log(JSON.stringify({
+    timestamp: new Date().toISOString(),
+    service: 'frontend',
+    level: 'INFO',
+    message: `${req.method} ${req.path}`
+  }));
+  next();
+});
+
+app.use(express.static(path.join(__dirname, 'public')));
+
+app.get('/health', (req, res) => res.json({ status: 'healthy', service: 'frontend' }));
+app.get('/ready', (req, res) => res.json({ status: 'ready', service: 'frontend' }));
+app.get('/version', (req, res) => res.json({ version: '0.1.0', service: 'frontend' }));
+app.get('/metrics', async (req, res) => {
+  res.set('Content-Type', register.contentType);
+  res.end(await register.metrics());
 });
 
 app.listen(PORT, () => {

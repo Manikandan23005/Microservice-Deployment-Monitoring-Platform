@@ -107,9 +107,21 @@ class ContextBuilder:
         if is_logs:
             try:
                 pods = pod_service.list_pods()
-                if pods:
-                    # Stream logs from first available pod
-                    target_pod = pods[0]
+                target_pod = None
+                for svc in ["auth", "users", "products", "orders", "payment", "notification", "gateway", "frontend"]:
+                    if svc in lower:
+                        for p in pods:
+                            if svc in p["name"].lower() and p["namespace"] == "devops-nexus-prod":
+                                target_pod = p
+                                break
+                    if target_pod:
+                        break
+                if not target_pod and pods:
+                    # Filter for prod namespace pods if possible
+                    prod_pods = [p for p in pods if p["namespace"] == "devops-nexus-prod"]
+                    target_pod = prod_pods[0] if prod_pods else pods[0]
+                    
+                if target_pod:
                     context["target_logs"] = {
                         "pod": target_pod["name"],
                         "namespace": target_pod["namespace"],

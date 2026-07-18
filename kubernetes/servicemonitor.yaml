@@ -1,0 +1,19 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: devops-nexus-monitor
+  namespace: devops-nexus-prod
+  labels:
+    release: kube-prometheus-stack
+spec:
+  selector:
+    matchExpressions:
+    - key: app
+      operator: Exists
+  namespaceSelector:
+    matchNames:
+    - devops-nexus-prod
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 10s
