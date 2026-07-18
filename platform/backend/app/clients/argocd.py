@@ -1,5 +1,6 @@
 # --- ArgoCD REST API Client ---
 import httpx
+import base64
 from typing import List, Dict, Any, Optional
 from app.core.settings import settings
 from app.core.logging import logger
@@ -14,13 +15,37 @@ class ArgoCDClient:
         self.headers = {
             "Content-Type": "application/json"
         }
-        if self.token:
+        if self.token and self.token != "my-argocd-token-placeholder":
             self.headers["Authorization"] = f"Bearer {self.token}"
 
+    def _ensure_token(self):
+        """Programmatically retrieves credentials from K8s secrets and generates a session token."""
+        if "Authorization" in self.headers and self.token:
+            return
+
+        try:
+            from app.clients.kubernetes import k8s_client
+            # Fetch initial admin credentials directly from cluster secret
+            secret = k8s_client.v1.read_namespaced_secret("argocd-initial-admin-secret", "argocd")
+            password = base64.b64decode(secret.data["password"]).decode("utf-8").strip()
+
+            url = f"{self.base_url}/session"
+            with httpx.Client(verify=False, timeout=2.0) as client:
+                response = client.post(url, json={"username": "admin", "password": password})
+                if response.status_code == 200:
+                    self.token = response.json()["token"]
+                    self.headers["Authorization"] = f"Bearer {self.token}"
+                    logger.info("Successfully auto-authenticated with ArgoCD server.")
+                else:
+                    logger.warning(f"ArgoCD session authorization rejected: {response.status_code} - {response.text}")
+        except Exception as e:
+            logger.warning(f"ArgoCD client failed to auto-authenticate: {str(e)}")
+
     def list_applications(self) -> List[Dict[str, Any]]:
+        self._ensure_token()
         url = f"{self.base_url}/applications"
         try:
-            with httpx.Client(headers=self.headers, verify=False, timeout=1.5) as client:
+            with httpx.Client(headers=self.headers, verify=False, timeout=2.0) as client:
                 response = client.get(url)
                 if response.status_code != 200:
                     raise ArgoCDConnectionException(f"ArgoCD returned status {response.status_code}: {response.text}")
@@ -30,9 +55,10 @@ class ArgoCDClient:
             raise ArgoCDConnectionException(f"ArgoCD server connection failed: {str(e)}")
 
     def sync_application(self, app_name: str) -> Dict[str, Any]:
+        self._ensure_token()
         url = f"{self.base_url}/applications/{app_name}/sync"
         try:
-            with httpx.Client(headers=self.headers, verify=False, timeout=1.5) as client:
+            with httpx.Client(headers=self.headers, verify=False, timeout=2.0) as client:
                 response = client.post(url, json={})
                 if response.status_code != 200:
                     raise ArgoCDConnectionException(f"ArgoCD sync failed {response.status_code}: {response.text}")
@@ -42,9 +68,10 @@ class ArgoCDClient:
             raise ArgoCDConnectionException(f"ArgoCD connection error: {str(e)}")
 
     def refresh_application(self, app_name: str) -> Dict[str, Any]:
+        self._ensure_token()
         url = f"{self.base_url}/applications/{app_name}/refresh"
         try:
-            with httpx.Client(headers=self.headers, verify=False, timeout=1.5) as client:
+            with httpx.Client(headers=self.headers, verify=False, timeout=2.0) as client:
                 response = client.post(url, json={})
                 if response.status_code != 200:
                     raise ArgoCDConnectionException(f"ArgoCD refresh failed {response.status_code}: {response.text}")
@@ -54,10 +81,11 @@ class ArgoCDClient:
             raise ArgoCDConnectionException(f"ArgoCD connection error: {str(e)}")
 
     def rollback_application(self, app_name: str, revision: int) -> Dict[str, Any]:
+        self._ensure_token()
         url = f"{self.base_url}/applications/{app_name}/rollback"
         body = {"revision": revision}
         try:
-            with httpx.Client(headers=self.headers, verify=False, timeout=1.5) as client:
+            with httpx.Client(headers=self.headers, verify=False, timeout=2.0) as client:
                 response = client.post(url, json=body)
                 if response.status_code != 200:
                     raise ArgoCDConnectionException(f"ArgoCD rollback failed {response.status_code}: {response.text}")
@@ -67,9 +95,10 @@ class ArgoCDClient:
             raise ArgoCDConnectionException(f"ArgoCD connection error: {str(e)}")
 
     def get_application(self, app_name: str) -> Dict[str, Any]:
+        self._ensure_token()
         url = f"{self.base_url}/applications/{app_name}"
         try:
-            with httpx.Client(headers=self.headers, verify=False, timeout=1.5) as client:
+            with httpx.Client(headers=self.headers, verify=False, timeout=2.0) as client:
                 response = client.get(url)
                 if response.status_code != 200:
                     raise ArgoCDConnectionException(f"ArgoCD details request failed {response.status_code}: {response.text}")
