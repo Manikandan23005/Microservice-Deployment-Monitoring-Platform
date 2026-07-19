@@ -14,6 +14,8 @@ class ArgoCDService:
                 status = app.get("status", {})
                 sync_status = status.get("sync", {}).get("status", "Unknown")
                 health_status = status.get("health", {}).get("status", "Unknown")
+                if sync_status == "Unknown" and health_status == "Healthy":
+                    sync_status = "Synced"
                 result.append({
                     "name": app.get("metadata", {}).get("name"),
                     "sync_status": sync_status,

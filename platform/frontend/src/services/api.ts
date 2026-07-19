@@ -47,7 +47,7 @@ export const api = {
       if (response.data && response.data.success) {
         return response.data.data.map((app: any) => ({
           name: app.name,
-          status: app.sync_status === 'Synced' ? 'Synced' : 'OutOfSync',
+          status: (app.sync_status === 'Synced' || app.health_status === 'Healthy') ? 'Synced' : 'OutOfSync',
           environment: app.name.includes('prod') ? 'prod' : 'dev',
           targetRevision: 'main',
           lastSync: 'Sync active'
