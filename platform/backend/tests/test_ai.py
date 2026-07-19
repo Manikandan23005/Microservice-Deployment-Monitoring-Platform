@@ -38,6 +38,8 @@ def test_ai_incident_analysis(client):
 
 def test_context_builder():
     from app.services.context_builder import context_builder
+    from app.utils.cache import ttl_cache
+    ttl_cache.clear()
     # Mock services outputs
     with patch("app.services.pod_service.pod_service.describe_pod", return_value={"name": "test-pod", "restarts": 0}), \
          patch("app.services.pod_service.pod_service.get_pod_logs", return_value="standard logs output"), \

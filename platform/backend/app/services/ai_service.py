@@ -4,25 +4,39 @@ import json
 from typing import Dict, Any, Optional, List
 from app.clients.llm import llm_client
 from app.services.context_builder import context_builder
+from app.services.query_planner import query_planner
 from app.utils.session_manager import session_manager
 from shared.exceptions import DevOpsNexusException
 from app.core.logging import logger
 
 class AIService:
-    """Orchestrates structured incident diagnostics by collecting live context and querying Groq models."""
+    """Orchestrates structured incident diagnostics by planning execution, running tools, and querying models."""
 
     def chat_troubleshoot(self, prompt: str, provider: Optional[str] = None, session_id: Optional[str] = None) -> Dict[str, Any]:
-        """Handles conversational AI triage by pulling live context first and forcing a structured JSON output."""
+        """Classifies prompt via Query Planner, runs Tool-First execution bypass if possible, or generates LLM triage output."""
+        
+        # 1. Check Query Planner for Tool-First Bypassing
+        plan_steps, bypass_llm, direct_result = query_planner.plan_execution(prompt)
+        
+        if bypass_llm and direct_result:
+            logger.info(f"Query Planner bypassed LLM for direct prompt: {prompt}")
+            session_manager.add_message(session_id, "user", prompt)
+            session_manager.add_message(session_id, "assistant", direct_result.get("summary", ""))
+            return direct_result
+
+        # 2. Flow through Context Builder if reasoning/diagnostics are needed
         context = context_builder.build_query_context(prompt, session_id=session_id)
         
         # Pull conversational history
         history = session_manager.get_history(session_id)
         history_str = "\n".join([f"{msg['role'].capitalize()}: {msg['content']}" for msg in history[-4:]])
 
+        # Force strict grounded reasoning without chatbot conversational filler
         system_prompt = (
             "You are DevOps Nexus AI Assistant, an enterprise AIOps engine. "
-            "You answer questions ONLY using the provided runtime context. Do not invent details.\n"
+            "You answer questions ONLY using the provided runtime context and execution results. Do not invent details.\n"
             "If the context shows the cluster has no workloads or is empty, state so clearly.\n"
+            "Do not recommend general tutorial commands like 'Run kubectl...' or 'Try this PromQL...'. Instead, suggest remediation using actual resource details.\n"
             "Output your entire response as a single, valid JSON object conforming exactly to this schema:\n"
             "{\n"
             '  "summary": "Short 1-sentence summary of the current operational status.",\n'
@@ -37,7 +51,7 @@ class AIService:
         
         prompt_with_context = (
             f"Chat History:\n{history_str}\n\n"
-            f"Runtime Context:\n{context}\n\n"
+            f"Execution Results Context:\n{context}\n\n"
             f"User Question:\n{prompt}\n"
         )
         

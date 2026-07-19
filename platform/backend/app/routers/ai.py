@@ -4,6 +4,7 @@ from fastapi.responses import StreamingResponse
 from app.schemas.responses import BaseResponse
 from app.schemas.ai import AIChatRequest, AIIncidentRequest
 from app.services.ai_service import ai_service
+from app.services.query_planner import query_planner
 from shared.exceptions import DevOpsNexusException
 import asyncio
 import json
@@ -31,24 +32,43 @@ async def chat_troubleshoot_stream(
     
     async def event_generator():
         try:
-            yield f"event: progress\ndata: {json.dumps({'status': 'Thinking'})}\n\n"
+            # 1. Ask Query Planner for the checklist
+            plan_steps, bypass_llm, direct_result = query_planner.plan_execution(prompt)
+            
+            if bypass_llm and direct_result:
+                # Direct tool execution path
+                if "Query Kubernetes Pods" in plan_steps:
+                    yield f"event: progress\ndata: {json.dumps({'status': 'Collecting Pods...'})}\n\n"
+                elif "Query Prometheus Metrics" in plan_steps:
+                    yield f"event: progress\ndata: {json.dumps({'status': 'Collecting Metrics...'})}\n\n"
+                elif "Query ArgoCD Applications status" in plan_steps:
+                    yield f"event: progress\ndata: {json.dumps({'status': 'Collecting Deployments...'})}\n\n"
+                else:
+                    yield f"event: progress\ndata: {json.dumps({'status': 'Collecting Metrics...'})}\n\n"
+                
+                await asyncio.sleep(0.4)
+                yield f"event: progress\ndata: {json.dumps({'status': 'Analyzing...'})}\n\n"
+                await asyncio.sleep(0.3)
+                
+                yield f"event: done\ndata: {json.dumps(direct_result)}\n\n"
+                return
+
+            # Conversational/Reasoning path
+            yield f"event: progress\ndata: {json.dumps({'status': 'Collecting Pods...'})}\n\n"
             await asyncio.sleep(0.3)
             
-            yield f"event: progress\ndata: {json.dumps({'status': 'Building Context'})}\n\n"
+            yield f"event: progress\ndata: {json.dumps({'status': 'Collecting Metrics...'})}\n\n"
             await asyncio.sleep(0.3)
             
-            yield f"event: progress\ndata: {json.dumps({'status': 'Collecting Metrics'})}\n\n"
+            yield f"event: progress\ndata: {json.dumps({'status': 'Collecting Logs...'})}\n\n"
             await asyncio.sleep(0.3)
             
-            yield f"event: progress\ndata: {json.dumps({'status': 'Collecting Logs'})}\n\n"
+            yield f"event: progress\ndata: {json.dumps({'status': 'Analyzing...'})}\n\n"
             await asyncio.sleep(0.3)
             
-            yield f"event: progress\ndata: {json.dumps({'status': 'Analyzing'})}\n\n"
-            await asyncio.sleep(0.3)
+            yield f"event: progress\ndata: {json.dumps({'status': 'Generating Response...'})}\n\n"
             
-            yield f"event: progress\ndata: {json.dumps({'status': 'Generating Analysis'})}\n\n"
-            
-            # Execute LLM call in a worker thread to avoid blocking the main async loop
+            # Execute LLM call in worker thread
             loop = asyncio.get_event_loop()
             response_data = await loop.run_in_executor(
                 None,
