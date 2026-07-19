@@ -242,3 +242,23 @@ All backend chat API endpoints return structured JSON conforming to the followin
 ### 5. Known Limitations
 - LLM completion speed is bounded by the upstream completions API provider latency.
 - Direct SSH/exec actions (e.g., shell commands triggers) are not automatically executed; suggestions must be explicitly confirmed by the operator using the UI dashboard card Suggested Actions.
+
+---
+
+## 🔐 Operator Role Credentials (v1.0.0-rc1)
+
+In production mode, the platform enforces strict JWT authentication. Log in using the following preset accounts:
+
+- **Administrator:** `admin` / `admin123` (Full write/read/settings privileges)
+- **DevOps Engineer:** `devops` / `devops123` (Deployments, scaling, logs, and GitOps controls)
+- **Developer:** `developer` / `developer123` (Deployments view & scaling; GitOps blocked)
+- **Read Only:** `viewer` / `viewer123` (Read-only dashboard view; all trigger controls disabled)
+
+---
+
+## 📈 Platform Instrumentation telemetry
+
+Custom SRE performance and latency metrics are collected dynamically. Query the metrics endpoint:
+- **Endpoint:** `GET http://localhost:8000/api/v1/monitoring/platform-metrics` (Requires Admin/DevOps/Developer JWT token)
+- **Output:** Average request latency, error ratios, cache hit percentages, AI response duration, and tool execution cost.
+
