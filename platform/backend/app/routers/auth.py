@@ -40,14 +40,14 @@ async def login(body: LoginRequest, response: Response, request: Request):
     role = user["role"]
     token = create_access_token({"sub": username, "role": role})
     
-    # Set secure HttpOnly cookie
+    # Set secure HttpOnly cookie with 30 days expiration
     response.set_cookie(
         key="session_token",
         value=token,
         httponly=True,
-        secure=True,
+        secure=False,
         samesite="lax",
-        max_age=3600
+        max_age=60 * 60 * 24 * 30
     )
     
     return BaseResponse(

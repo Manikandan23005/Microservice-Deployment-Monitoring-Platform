@@ -4,7 +4,7 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from app.core.cache import cache_client
 
-RATE_LIMIT_MAX = 100  # Max 100 requests per minute
+RATE_LIMIT_MAX = 1000  # Max 1000 requests per minute
 RATE_LIMIT_WINDOW = 60  # Time window of 60 seconds
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
