@@ -7,6 +7,10 @@ class AIChatRequest(BaseModel):
     prompt: str = Field(..., description="The user query or context to analyze.")
     provider: Optional[str] = Field(None, description="Select client AI provider: openai, groq, ollama, lmstudio.")
     session_id: Optional[str] = Field(None, description="Optional conversational session tracking identifier.")
+    scope_mode: Optional[str] = Field("cluster", description="Operations scope mode.")
+    scope_namespace: Optional[str] = Field("devops-nexus-prod", description="Scope target namespace.")
+    scope_app: Optional[str] = Field(None, description="Scope target application name.")
+    scope_domain: Optional[str] = Field(None, description="Scope target domain.")
 
 class AIIncidentRequest(BaseModel):
     """Payload to trigger detailed incident diagnostics."""

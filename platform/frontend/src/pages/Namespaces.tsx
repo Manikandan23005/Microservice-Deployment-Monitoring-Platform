@@ -3,6 +3,8 @@ import { Table } from '../components/Table';
 import { Loading } from '../components/Loading';
 import { api } from '../services/api';
 
+import { useScope } from '../context/ScopeContext';
+
 interface NamespaceItem {
   name: string;
   status: string;
@@ -14,13 +16,15 @@ interface NamespaceItem {
 const Namespaces: React.FC = () => {
   const [namespaces, setNamespaces] = useState<NamespaceItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const { getScopeParams } = useScope();
 
   useEffect(() => {
-    api.getNamespaces().then((data) => {
+    setLoading(true);
+    api.getNamespaces(getScopeParams()).then((data) => {
       setNamespaces(data);
       setLoading(false);
     });
-  }, []);
+  }, [JSON.stringify(getScopeParams())]);
 
   const columns = [
     { header: 'Namespace Name', accessor: 'name' as const },

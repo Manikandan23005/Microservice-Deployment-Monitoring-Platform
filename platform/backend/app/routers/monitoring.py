@@ -14,11 +14,21 @@ router = APIRouter(
     dependencies=[Depends(get_current_user)]
 )
 
+from app.services.scope_engine import scope_engine
+
 @router.get("/metrics", response_model=BaseResponse)
-async def get_cluster_metrics(request: Request):
+async def get_cluster_metrics(
+    request: Request,
+    scope_mode: Optional[str] = Query("cluster"),
+    namespace: Optional[str] = Query(None),
+    app: Optional[str] = Query(None),
+    domain: Optional[str] = Query(None)
+):
     """Retrieves cluster performance summary metrics."""
     request_id = getattr(request.state, "request_id", None)
     try:
+        scope = scope_engine.resolve_scope(scope_mode, namespace, app, domain)
+        promql_clause = scope_engine.build_promql_filter(scope)
         data = monitoring_service.get_cluster_metrics()
         return BaseResponse(success=True, data=data, request_id=request_id)
     except TelemetryFetchException as e:
@@ -27,11 +37,16 @@ async def get_cluster_metrics(request: Request):
 @router.get("/metrics/range", response_model=BaseResponse)
 async def get_metrics_range(
     request: Request,
-    metric_type: str = Query("cpu", pattern="^(cpu|memory|network)$", description="Target metric telemetry type.")
+    metric_type: str = Query("cpu", pattern="^(cpu|memory|network)$", description="Target metric telemetry type."),
+    scope_mode: Optional[str] = Query("cluster"),
+    namespace: Optional[str] = Query(None),
+    app: Optional[str] = Query(None),
+    domain: Optional[str] = Query(None)
 ):
     """Retrieves metrics range data points for graphic rendering."""
     request_id = getattr(request.state, "request_id", None)
     try:
+        scope = scope_engine.resolve_scope(scope_mode, namespace, app, domain)
         data = monitoring_service.get_performance_range(metric_type)
         return BaseResponse(success=True, data={"values": data}, request_id=request_id)
     except TelemetryFetchException as e:
@@ -40,14 +55,20 @@ async def get_metrics_range(
 @router.get("/logs", response_model=BaseResponse)
 async def get_logs(
     request: Request,
-    pod: str = Query(..., description="Target pod identifier."),
+    pod: Optional[str] = Query("all", description="Target pod identifier."),
     search: Optional[str] = Query(None, description="Optional search keywords filter."),
-    limit: int = Query(100, ge=1, le=1000, description="Log lines limit offset.")
+    limit: int = Query(100, ge=1, le=1000, description="Log lines limit offset."),
+    scope_mode: Optional[str] = Query("cluster"),
+    namespace: Optional[str] = Query(None),
+    app: Optional[str] = Query(None),
+    domain: Optional[str] = Query(None)
 ):
     """Retrieves container logs fetched from Loki logs indexes."""
     request_id = getattr(request.state, "request_id", None)
     try:
-        data = log_service.get_logs(pod, search=search, limit=limit)
+        scope = scope_engine.resolve_scope(scope_mode, namespace, app, domain)
+        log_query_pod = pod if pod and pod != "all" else scope_engine.build_logql_selector(scope)
+        data = log_service.get_logs(log_query_pod, search=search, limit=limit)
         return BaseResponse(success=True, data=data, request_id=request_id)
     except TelemetryFetchException as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))

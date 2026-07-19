@@ -41,12 +41,22 @@ async def get_github_repo_details(
     except DevOpsNexusException as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
+from app.services.scope_engine import scope_engine
+
 @router.get("/argocd/applications", response_model=BaseResponse)
-async def list_argocd_applications(request: Request):
+async def list_argocd_applications(
+    request: Request,
+    scope_mode: Optional[str] = Query("cluster"),
+    namespace: Optional[str] = Query(None),
+    app: Optional[str] = Query(None),
+    domain: Optional[str] = Query(None)
+):
     """Lists applications synchronizations status registered in ArgoCD."""
     request_id = getattr(request.state, "request_id", None)
     try:
-        data = argocd_service.list_applications()
+        scope = scope_engine.resolve_scope(scope_mode, namespace, app, domain)
+        raw_apps = argocd_service.list_applications()
+        data = scope_engine.filter_argocd_apps(raw_apps, scope)
         return BaseResponse(success=True, data=data, request_id=request_id)
     except DevOpsNexusException as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))

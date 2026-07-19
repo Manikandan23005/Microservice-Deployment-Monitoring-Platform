@@ -3,37 +3,34 @@ import { api } from '../services/api';
 import { LogLine } from '../types';
 import { Search, RefreshCw, TerminalSquare, Eye } from 'lucide-react';
 
+import { useScope } from '../context/ScopeContext';
+
 const Logs: React.FC = () => {
   const [podsList, setPodsList] = useState<string[]>([]);
-  const [selectedPod, setSelectedPod] = useState('');
+  const [selectedPod, setSelectedPod] = useState('all');
   const [logs, setLogs] = useState<LogLine[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
   const [liveRefresh, setLiveRefresh] = useState(true);
+  const { getScopeParams } = useScope();
   
   const terminalEndRef = useRef<HTMLDivElement | null>(null);
 
-  // Load pods list dynamically on mount
+  // Load pods list dynamically on mount or scope change
   useEffect(() => {
-    api.getPods().then((pods) => {
+    api.getPods(undefined, getScopeParams()).then((pods) => {
       const names = pods.map(p => p.name);
       setPodsList(names);
-      if (names.length > 0) {
+      if (names.length > 0 && !names.includes(selectedPod)) {
         setSelectedPod(names[0]);
       }
     });
-  }, []);
+  }, [JSON.stringify(getScopeParams())]);
 
   const fetchLogsData = async (silent = false) => {
-    if (loading) return;
-    if (!selectedPod) {
-      setLogs([]);
-      setLoading(false);
-      return;
-    }
     if (!silent) setLoading(true);
     try {
-      const data = await api.getLogs(selectedPod, searchTerm || undefined);
+      const data = await api.getLogs(selectedPod || 'all', searchTerm || undefined, 100, getScopeParams());
       setLogs(data);
     } catch (e) {
       console.error(e);
@@ -44,7 +41,7 @@ const Logs: React.FC = () => {
 
   useEffect(() => {
     fetchLogsData();
-  }, [selectedPod, searchTerm]);
+  }, [selectedPod, searchTerm, JSON.stringify(getScopeParams())]);
 
   // Live Refresh interval: 3 seconds
   useEffect(() => {

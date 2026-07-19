@@ -1,88 +1,113 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { 
-  LayoutDashboard, GitBranch, Shield, Cpu, Layers, BarChart3, 
-  Terminal, AlertTriangle, Bot, Settings, Sun, Moon, Menu, X, TerminalSquare
+  LayoutDashboard, GitBranch, Cpu, Layers, BarChart3, 
+  Terminal, AlertTriangle, Bot, Settings, Sun, Moon, Menu, X, TerminalSquare, Globe, Server
 } from 'lucide-react';
 import { api } from '../services/api';
+import { useScope, ScopeMode, InfrastructureDomain } from '../context/ScopeContext';
 
 const DashboardLayout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [darkMode, setDarkMode] = useState(true);
   const location = useLocation();
 
+  const {
+    scopeMode,
+    setScopeMode,
+    selectedNamespace,
+    setSelectedNamespace,
+    selectedApp,
+    setSelectedApp,
+    selectedDomain,
+    setSelectedDomain,
+    getScopeLabel
+  } = useScope();
+
   useEffect(() => {
-    const root = window.document.documentElement;
     if (darkMode) {
-      root.classList.add('dark');
-      root.style.backgroundColor = '#0b0f19';
+      document.documentElement.classList.add('dark');
     } else {
-      root.classList.remove('dark');
-      root.style.backgroundColor = '#f8fafc';
+      document.documentElement.classList.remove('dark');
     }
   }, [darkMode]);
 
   const navItems = [
-    { name: 'Overview', path: '/overview', icon: LayoutDashboard },
-    { name: 'Deployments', path: '/deployments', icon: GitBranch },
-    { name: 'Pods', path: '/pods', icon: Shield },
-    { name: 'Nodes', path: '/nodes', icon: Cpu },
-    { name: 'Namespaces', path: '/namespaces', icon: Layers },
-    { name: 'Metrics', path: '/metrics', icon: BarChart3 },
-    { name: 'Logs', path: '/logs', icon: Terminal },
-    { name: 'Alerts', path: '/alerts', icon: AlertTriangle },
-    { name: 'AI Assistant', path: '/ai', icon: Bot },
-    { name: 'Settings', path: '/settings', icon: Settings },
+    { path: '/overview', label: 'Overview', icon: LayoutDashboard },
+    { path: '/deployments', label: 'Deployments', icon: GitBranch },
+    { path: '/pods', label: 'Pods', icon: Cpu },
+    { path: '/nodes', label: 'Nodes', icon: Server },
+    { path: '/namespaces', label: 'Namespaces', icon: Layers },
+    { path: '/metrics', label: 'Metrics', icon: BarChart3 },
+    { path: '/logs', label: 'Logs', icon: Terminal },
+    { path: '/alerts', label: 'Alerts', icon: AlertTriangle },
+    { path: '/ai', label: 'AI Assistant', icon: Bot },
+    { path: '/settings', label: 'Settings', icon: Settings },
   ];
 
-  // Derive breadcrumb text
-  const currentPath = location.pathname.substring(1);
-  const breadcrumb = currentPath.charAt(0).toUpperCase() + currentPath.slice(1) || 'Overview';
+  const currentNav = navItems.find(item => item.path === location.pathname);
+  const breadcrumb = currentNav ? currentNav.label : 'Overview';
+
+  const knownApps = [
+    'auth-service', 'frontend-service', 'gateway-service',
+    'notification-service', 'orders-service', 'payment-service',
+    'products-service', 'users-service'
+  ];
 
   return (
-    <div className="min-h-screen flex transition-colors duration-200 bg-[#f8fafc] dark:bg-[#0b0f19] text-slate-800 dark:text-slate-100">
-      
-      {/* --- Sidebar Component --- */}
-      <aside className={`fixed top-0 bottom-0 left-0 z-40 bg-slate-900 border-r border-slate-800 flex flex-col transition-all duration-300 ${sidebarOpen ? 'w-64' : 'w-20'}`}>
-        {/* Sidebar Header */}
-        <div className="h-16 flex items-center justify-between px-6 border-b border-slate-800">
-          <div className="flex items-center gap-3 overflow-hidden">
-            <TerminalSquare className="h-7 w-7 text-blue-500 flex-shrink-0" />
-            {sidebarOpen && (
-              <span className="font-bold text-lg text-white whitespace-nowrap tracking-wide bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
-                DevOps Nexus
-              </span>
-            )}
+    <div className="min-h-screen flex bg-slate-50 dark:bg-[#0b0f19] text-slate-900 dark:text-slate-100 font-sans transition-colors duration-200">
+      {/* --- Sidebar Navigation --- */}
+      <aside 
+        className={`fixed inset-y-0 left-0 z-40 bg-white/80 dark:bg-slate-900/80 border-r border-slate-200 dark:border-slate-800 backdrop-blur-xl flex flex-col justify-between transition-all duration-300 ${
+          sidebarOpen ? 'w-64' : 'w-20'
+        }`}
+      >
+        <div className="space-y-6">
+          {/* Brand Header */}
+          <div className="h-16 flex items-center px-6 border-b border-slate-200 dark:border-slate-800">
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-xl bg-blue-600 flex items-center justify-center text-white font-bold shadow-lg shadow-blue-500/20 flex-shrink-0">
+                <TerminalSquare className="h-5 w-5" />
+              </div>
+              {sidebarOpen && (
+                <div className="flex flex-col">
+                  <span className="font-bold text-base tracking-wide bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent">
+                    DevOps Nexus
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">AIOps Workspace</span>
+                </div>
+              )}
+            </div>
           </div>
+
+          {/* Navigation Links */}
+          <nav className="px-3 space-y-1.5">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = location.pathname === item.path;
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 ${
+                    isActive 
+                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' 
+                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  <Icon className="h-4.5 w-4.5 flex-shrink-0" />
+                  {sidebarOpen && <span>{item.label}</span>}
+                </Link>
+              );
+            })}
+          </nav>
         </div>
 
-        {/* Sidebar Navigation */}
-        <nav className="flex-1 py-6 px-4 space-y-2 overflow-y-auto">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = location.pathname === item.path;
-            return (
-              <Link 
-                key={item.path} 
-                to={item.path}
-                className={`flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all duration-200 ${
-                  isActive 
-                    ? 'bg-blue-600 text-white font-medium shadow-md shadow-blue-500/25' 
-                    : 'text-slate-400 hover:bg-slate-800/60 hover:text-white'
-                }`}
-              >
-                <Icon className="h-5 w-5 flex-shrink-0" />
-                {sidebarOpen && <span className="text-sm">{item.name}</span>}
-              </Link>
-            );
-          })}
-        </nav>
-
-        {/* Sidebar Footer */}
-        <div className="p-4 border-t border-slate-800">
+        {/* Sidebar Toggle Button */}
+        <div className="p-4 border-t border-slate-200 dark:border-slate-800">
           <button 
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="w-full flex items-center justify-center p-3 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700/80 hover:text-white transition-all"
+            className="w-full flex items-center justify-center p-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700/80 transition-all"
           >
             {sidebarOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
           </button>
@@ -92,19 +117,81 @@ const DashboardLayout: React.FC = () => {
       {/* --- Page Main Viewport --- */}
       <div className={`flex-1 flex flex-col transition-all duration-300 ${sidebarOpen ? 'pl-64' : 'pl-20'}`}>
         
-        {/* Top Navbar */}
-        <header className="h-16 flex items-center justify-between px-8 bg-white/60 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800 backdrop-blur-md sticky top-0 z-30">
-          {/* Breadcrumbs */}
-          <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-            <span className="hover:text-blue-500 cursor-pointer">Platform</span>
-            <span>/</span>
-            <span className="text-slate-800 dark:text-white font-medium">{breadcrumb}</span>
+        {/* Top Navbar with Operations Scope Controls */}
+        <header className="h-16 flex items-center justify-between px-6 bg-white/60 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800 backdrop-blur-md sticky top-0 z-30">
+          
+          {/* Left: Breadcrumbs & Operations Scope Indicator */}
+          <div className="flex items-center gap-3 text-sm">
+            <span className="text-slate-400 font-medium">Platform / {breadcrumb}</span>
+            <span className="text-slate-600 dark:text-slate-700">|</span>
+            {/* Active Scope Badge */}
+            <span className="px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-500 text-xs font-bold flex items-center gap-1.5 shadow-sm">
+              <Globe className="h-3.5 w-3.5" />
+              {getScopeLabel()}
+            </span>
           </div>
 
-          {/* Right Header Icons */}
-          <div className="flex items-center gap-4">
+          {/* Center-Right: Operations Scope Control Selectors */}
+          <div className="flex items-center gap-3">
+            {/* Scope Mode Dropdown */}
+            <select
+              value={scopeMode}
+              onChange={(e) => setScopeMode(e.target.value as ScopeMode)}
+              className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:border-blue-500 cursor-pointer"
+            >
+              <option value="cluster">🌐 Scope: Entire Cluster</option>
+              <option value="namespace">📦 Scope: Namespace</option>
+              <option value="app">🚀 Scope: Application</option>
+              <option value="infra">⚙ Scope: Infrastructure</option>
+            </select>
+
+            {/* Secondary Selector: Namespace */}
+            {(scopeMode === 'namespace' || scopeMode === 'app') && (
+              <select
+                value={selectedNamespace}
+                onChange={(e) => setSelectedNamespace(e.target.value)}
+                className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:border-blue-500 cursor-pointer"
+              >
+                <option value="devops-nexus-prod">Namespace: devops-nexus-prod</option>
+                <option value="monitoring">Namespace: monitoring</option>
+                <option value="logging-lab">Namespace: logging-lab</option>
+                <option value="argocd">Namespace: argocd</option>
+                <option value="ingress-nginx">Namespace: ingress-nginx</option>
+                <option value="kube-system">Namespace: kube-system</option>
+                <option value="default">Namespace: default</option>
+              </select>
+            )}
+
+            {/* Secondary Selector: Application */}
+            {scopeMode === 'app' && (
+              <select
+                value={selectedApp}
+                onChange={(e) => setSelectedApp(e.target.value)}
+                className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:border-blue-500 cursor-pointer"
+              >
+                {knownApps.map(a => (
+                  <option key={a} value={a}>App: {a}</option>
+                ))}
+              </select>
+            )}
+
+            {/* Secondary Selector: Infrastructure Domain */}
+            {scopeMode === 'infra' && (
+              <select
+                value={selectedDomain}
+                onChange={(e) => setSelectedDomain(e.target.value as InfrastructureDomain)}
+                className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:border-blue-500 cursor-pointer"
+              >
+                <option value="monitoring">Domain: Monitoring</option>
+                <option value="logging">Domain: Logging</option>
+                <option value="gitops">Domain: GitOps</option>
+                <option value="networking">Domain: Networking</option>
+                <option value="storage">Domain: Storage</option>
+              </select>
+            )}
+
             {/* System Health Badge */}
-            <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-xs font-semibold">
+            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-xs font-semibold">
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
               Healthy
             </div>
@@ -112,12 +199,12 @@ const DashboardLayout: React.FC = () => {
             {/* Dark Mode Toggle */}
             <button 
               onClick={() => setDarkMode(!darkMode)}
-              className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-200"
+              className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-200"
             >
               {darkMode ? <Sun className="h-4 w-4 text-amber-500" /> : <Moon className="h-4 w-4 text-indigo-500" />}
             </button>
 
-            {/* Logged in User info & Logout */}
+            {/* User Profile & Logout */}
             <div className="flex items-center gap-3 pl-2 border-l border-slate-200 dark:border-slate-800">
               <div className="text-right hidden sm:block">
                 <div className="text-xs font-bold text-slate-800 dark:text-white capitalize">
@@ -127,7 +214,7 @@ const DashboardLayout: React.FC = () => {
                   {localStorage.getItem('user_role') || 'Viewer'}
                 </div>
               </div>
-              <div className="h-9 w-9 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-md shadow-blue-500/10">
+              <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 text-white flex items-center justify-center font-bold text-xs shadow-md shadow-blue-500/10">
                 {(localStorage.getItem('username') || 'Op').substring(0, 2).toUpperCase()}
               </div>
               <button
@@ -135,7 +222,7 @@ const DashboardLayout: React.FC = () => {
                   await api.logout();
                   window.location.href = '/login';
                 }}
-                className="px-2.5 py-1.5 rounded-lg border border-rose-500/20 text-rose-500 bg-rose-500/5 hover:bg-rose-500/15 text-xs font-bold transition-all"
+                className="px-2.5 py-1 rounded-lg border border-rose-500/20 text-rose-500 bg-rose-500/5 hover:bg-rose-500/15 text-xs font-bold transition-all"
               >
                 Logout
               </button>
@@ -143,12 +230,11 @@ const DashboardLayout: React.FC = () => {
           </div>
         </header>
 
-        {/* Content Container */}
+        {/* Content Viewport */}
         <main className="flex-1 p-8 overflow-y-auto">
           <Outlet />
         </main>
       </div>
-
     </div>
   );
 };

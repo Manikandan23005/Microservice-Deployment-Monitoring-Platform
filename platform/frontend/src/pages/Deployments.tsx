@@ -5,6 +5,8 @@ import { api } from '../services/api';
 import { AppInfo } from '../types';
 import { RefreshCw, Play, X, History } from 'lucide-react';
 
+import { useScope } from '../context/ScopeContext';
+
 const Deployments: React.FC = () => {
   const [apps, setApps] = useState<AppInfo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -17,10 +19,11 @@ const Deployments: React.FC = () => {
   
   const userRole = localStorage.getItem('user_role') || 'Viewer';
   const isGitOpsAllowed = ['Administrator', 'DevOps Engineer'].includes(userRole);
+  const { getScopeParams } = useScope();
 
   const fetchApps = async () => {
     try {
-      const data = await api.getApplications();
+      const data = await api.getApplications(getScopeParams());
       setApps(data);
     } catch (e) {
       console.error(e);
@@ -31,7 +34,7 @@ const Deployments: React.FC = () => {
 
   useEffect(() => {
     fetchApps();
-  }, []);
+  }, [JSON.stringify(getScopeParams())]);
 
   const handleSync = async (appName: string) => {
     setTriggering(appName);

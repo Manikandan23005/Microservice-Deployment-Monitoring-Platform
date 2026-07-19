@@ -4,16 +4,20 @@ import { Loading } from '../components/Loading';
 import { api } from '../services/api';
 import { PodInfo } from '../types';
 
+import { useScope } from '../context/ScopeContext';
+
 const Pods: React.FC = () => {
   const [pods, setPods] = useState<PodInfo[]>([]);
   const [loading, setLoading] = useState(true);
+  const { getScopeParams } = useScope();
 
   useEffect(() => {
-    api.getPods().then((data) => {
+    setLoading(true);
+    api.getPods(undefined, getScopeParams()).then((data) => {
       setPods(data);
       setLoading(false);
     });
-  }, []);
+  }, [JSON.stringify(getScopeParams())]);
 
   const columns = [
     { header: 'Pod Name', accessor: 'name' as const },

@@ -1,10 +1,12 @@
 from typing import Dict, Any, List, Optional, Tuple
 from app.services.tool_executor import tool_executor
+from app.services.scope_engine import scope_engine
+from shared.scope import OperationsScope
 
 class QueryPlanner:
     """Classifies prompts and plans execution flows, prioritizing direct tool-execution before LLM reasoning."""
 
-    def plan_execution(self, prompt: str) -> Tuple[List[str], bool, Optional[Dict[str, Any]]]:
+    def plan_execution(self, prompt: str, scope: Optional[OperationsScope] = None) -> Tuple[List[str], bool, Optional[Dict[str, Any]]]:
         """
         Parses query intent, generates a plan sequence list, and checks if we can bypass the LLM.
         
@@ -15,21 +17,27 @@ class QueryPlanner:
         plan_steps = []
         bypass_llm = False
         direct_result = None
+        current_scope = scope or scope_engine.resolve_scope()
 
         # Heuristics for Direct Tool-First Execution (Bypass LLM)
         
         # 1. Pod count or list pods query
         if any(w in lower for w in ["how many pods", "pods count", "list pods", "show pods"]):
             plan_steps = ["Query Kubernetes Pods"]
-            pods = tool_executor.get_pods()
+            raw_pods = tool_executor.get_pods()
+            pods = scope_engine.filter_pods(raw_pods, current_scope)
             running = sum(1 for p in pods if p.get("status") == "Running")
             pending = sum(1 for p in pods if p.get("status") == "Pending")
             failed = sum(1 for p in pods if p.get("status") not in ["Running", "Pending"])
             
+            scope_desc = f"Scope Mode: {current_scope.mode.value.upper()}"
+            if current_scope.namespace:
+                scope_desc += f" [{current_scope.namespace}]"
+
             bypass_llm = True
             direct_result = {
-                "summary": f"Kubernetes Pods Status Summary: {len(pods)} total pods discovered.",
-                "root_cause": "Live pods telemetry request directly resolved from Kubernetes API server.",
+                "summary": f"Kubernetes Pods Summary ({scope_desc}): {len(pods)} pods discovered.",
+                "root_cause": "Live pods telemetry request directly resolved from Kubernetes API server within current operational scope.",
                 "evidence": [
                     f"Running Pods: {running}",
                     f"Pending Pods: {pending}",
@@ -47,7 +55,8 @@ class QueryPlanner:
         # 2. Unhealthy deployments
         if any(w in lower for w in ["unhealthy deployments", "failed deployments", "show unhealthy deployments"]):
             plan_steps = ["Query Deployments status"]
-            deps = tool_executor.get_deployments()
+            raw_deps = tool_executor.get_deployments()
+            deps = scope_engine.filter_deployments(raw_deps, current_scope)
             unhealthy = [d for d in deps if d.get("replicas") != d.get("ready_replicas")]
             
             bypass_llm = True
@@ -59,122 +68,49 @@ class QueryPlanner:
                 ns = d.get("namespace")
                 desired = d.get("replicas")
                 ready = d.get("ready_replicas")
-                evidence.append(f"Deployment {name} ({ns}) desired {desired} but ready {ready}")
+                evidence.append(f"Deployment {name} ({ns}): {ready}/{desired} ready replicas")
                 affected.append(f"deployment/{name}")
-                recs.append(f"Trigger rollout restart for deployment {name} in {ns}")
-            
+                recs.append(f"restart deployment {name}")
+
             direct_result = {
-                "summary": f"Discovered {len(unhealthy)} unhealthy deployments in the cluster." if unhealthy else "All deployments are fully healthy and scaled.",
-                "root_cause": "Replicas checks verification directly resolved from Kubernetes API.",
-                "evidence": evidence if unhealthy else ["All deployments ready replica counts match desired specs."],
+                "summary": f"Unhealthy Deployments Audit: Found {len(unhealthy)} unhealthy deployments in current scope.",
+                "root_cause": "Live deployment replicas inspection resolved directly from Kubernetes API server.",
+                "evidence": evidence if evidence else ["All deployments in scope have 100% ready replicas."],
                 "affected_resources": affected,
-                "recommendations": recs,
-                "severity": "Critical" if unhealthy else "Info",
+                "recommendations": recs if recs else ["No deployment remediation required."],
+                "severity": "Critical" if len(unhealthy) > 0 else "Info",
                 "confidence": 100
             }
             return plan_steps, bypass_llm, direct_result
 
-        # 3. Cluster Health
-        if any(w in lower for w in ["cluster health", "show cluster health", "is the cluster healthy"]):
+        # 3. Cluster health summary
+        if any(w in lower for w in ["cluster health", "system health", "show cluster health"]):
             plan_steps = ["Query Cluster Health"]
             health = tool_executor.get_cluster_health()
-            metrics = tool_executor._get_metrics_summary()
             
             bypass_llm = True
             direct_result = {
-                "summary": f"Cluster status is currently {health.get('status')}.",
-                "root_cause": "Aggregated control plane telemetry resolved from Kubernetes API.",
+                "summary": f"Cluster Health Status: {health.get('status')}",
+                "root_cause": "Real-time cluster infrastructure health evaluated directly from live Kubernetes telemetry.",
                 "evidence": [
-                    f"Active Pods: {health.get('running_pods')}/{health.get('total_pods')} running",
-                    f"Worker Nodes: {health.get('ready_nodes')}/{health.get('total_nodes')} ready",
-                    f"Average CPU load: {metrics.get('cpu_utilization', 0.0):.1f}%",
-                    f"Average Memory load: {metrics.get('memory_utilization', 0.0):.1f}%"
+                    f"Running Pods: {health.get('running_pods')}/{health.get('total_pods')}",
+                    f"Ready Nodes: {health.get('ready_nodes')}/{health.get('total_nodes')}"
                 ],
                 "affected_resources": [],
-                "recommendations": [
-                    "Inspect non-ready pods or scaling configurations"
-                ] if health.get("status") != "Healthy" else [],
-                "severity": "Warning" if health.get("status") != "Healthy" else "Info",
+                "recommendations": [] if health.get('status') == "Healthy" else ["Review degraded workloads"],
+                "severity": "Info" if health.get('status') == "Healthy" else "Warning",
                 "confidence": 100
             }
             return plan_steps, bypass_llm, direct_result
 
-        # 4. CPU/Memory metrics
-        if any(w in lower for w in ["cpu usage", "memory usage", "network usage", "metrics", "throughput"]):
-            plan_steps = ["Query Prometheus Metrics"]
-            metrics = tool_executor._get_metrics_summary()
-            
-            bypass_llm = True
-            direct_result = {
-                "summary": "Current cluster resource metrics load snapshot.",
-                "root_cause": "Telemetry scraping resolved from active Prometheus server.",
-                "evidence": [
-                    f"CPU Utilization: {metrics.get('cpu_utilization', 0.0):.1f}%",
-                    f"Memory Allocation: {metrics.get('memory_utilization', 0.0):.1f}%",
-                    f"Network Throughput: {metrics.get('network_throughput_bytes', 0.0) / 1024:.1f} KB/s"
-                ],
-                "affected_resources": [],
-                "recommendations": [],
-                "severity": "Info",
-                "confidence": 100
-            }
-            return plan_steps, bypass_llm, direct_result
-
-        # 5. Nodes list
-        if any(w in lower for w in ["nodes", "list nodes", "show nodes"]):
-            plan_steps = ["Query Kubernetes Nodes"]
-            nodes = tool_executor.get_nodes()
-            ready = sum(1 for n in nodes if n.get("status") == "Ready")
-            
-            bypass_llm = True
-            direct_result = {
-                "summary": f"Discovered {len(nodes)} total nodes in the cluster. {ready} ready.",
-                "root_cause": "Nodes validation resolved from Kubernetes API server.",
-                "evidence": [f"Node {n.get('name')} is {n.get('status')} (Role: {n.get('role')})" for n in nodes],
-                "affected_resources": [n.get("name") for n in nodes if n.get("status") != "Ready"],
-                "recommendations": [],
-                "severity": "Info",
-                "confidence": 100
-            }
-            return plan_steps, bypass_llm, direct_result
-
-        # 6. Namespaces list
-        if any(w in lower for w in ["namespaces", "list namespaces", "show namespaces"]):
-            plan_steps = ["Query Kubernetes Namespaces"]
-            ns = tool_executor.get_namespaces()
-            
-            bypass_llm = True
-            direct_result = {
-                "summary": f"Discovered {len(ns)} active namespaces in the cluster.",
-                "root_cause": "Namespaces catalog resolved from Kubernetes API server.",
-                "evidence": [f"Namespace: {n.get('name')} ({n.get('status')})" for n in ns],
-                "affected_resources": [],
-                "recommendations": [],
-                "severity": "Info",
-                "confidence": 100
-            }
-            return plan_steps, bypass_llm, direct_result
-
-        # 7. ArgoCD GitOps applications
-        if any(w in lower for w in ["applications", "list applications", "argocd", "gitops status"]):
-            plan_steps = ["Query ArgoCD Applications status"]
-            apps = tool_executor.get_applications()
-            synced = sum(1 for a in apps if a.get("sync_status") == "Synced")
-            
-            bypass_llm = True
-            direct_result = {
-                "summary": f"Discovered {len(apps)} GitOps applications monitored by ArgoCD. {synced} synced.",
-                "root_cause": "Sync metrics fetched programmatically from ArgoCD API server.",
-                "evidence": [f"App {a.get('name')}: sync={a.get('sync_status')}, health={a.get('health_status')}" for a in apps],
-                "affected_resources": [a.get("name") for a in apps if a.get("sync_status") != "Synced"],
-                "recommendations": [f"Review Git commits for app {a.get('name')}" for a in apps if a.get("sync_status") != "Synced"],
-                "severity": "Warning" if synced < len(apps) else "Info",
-                "confidence": 100
-            }
-            return plan_steps, bypass_llm, direct_result
-
-        # Fallback to LLM Triage Reasoning Plan (For diagnosis and incident correlations)
-        plan_steps = ["Query Kubernetes configuration", "Query Prometheus Metrics", "Query Loki Logs", "Query ArgoCD Sync State", "Correlate Infrastructure telemetry", "Invoke LLM diagnostics"]
+        # Default: Full Reasoning Triage Flow
+        plan_steps = [
+            "Collect Pods & Deployments",
+            "Collect Prometheus Metrics",
+            "Collect Loki Logs",
+            "Collect ArgoCD Applications",
+            "Analyze Incident & Generate Diagnostics"
+        ]
         return plan_steps, False, None
 
 query_planner = QueryPlanner()

@@ -13,6 +13,7 @@ import Settings from './pages/Settings';
 import Login from './pages/Login';
 import NotFound from './pages/NotFound';
 import ProtectedRoute from './components/ProtectedRoute';
+import { ScopeProvider } from './context/ScopeContext';
 
 function App() {
   return (
@@ -26,7 +27,9 @@ function App() {
           path="/" 
           element={
             <ProtectedRoute>
-              <DashboardLayout />
+              <ScopeProvider>
+                <DashboardLayout />
+              </ScopeProvider>
             </ProtectedRoute>
           }
         >

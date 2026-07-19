@@ -9,6 +9,8 @@ interface ChatMessage {
   structured?: AIResponse;
 }
 
+import { useScope } from '../context/ScopeContext';
+
 const AI: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([
     { 
@@ -20,6 +22,8 @@ const AI: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [provider, setProvider] = useState('groq');
   const [progressStatus, setProgressStatus] = useState<string>('');
+  
+  const { getScopeParams, getScopeLabel } = useScope();
   
   // Persistent session tracking
   const [sessionId] = useState(() => Math.random().toString(36).substring(7));
@@ -42,6 +46,7 @@ const AI: React.FC = () => {
       text,
       provider,
       sessionId,
+      getScopeParams(),
       (status) => {
         setProgressStatus(status);
       },
@@ -127,7 +132,7 @@ const AI: React.FC = () => {
           <h2 className="text-2xl font-bold tracking-tight text-slate-800 dark:text-white">AI Incident Assistant</h2>
           <div className="px-2.5 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-500 text-[10px] font-bold flex items-center gap-1.5 uppercase">
             <Sparkles className="h-3 w-3" />
-            Active
+            {getScopeLabel()}
           </div>
         </div>
 

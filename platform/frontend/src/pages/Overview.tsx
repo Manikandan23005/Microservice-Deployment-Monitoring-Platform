@@ -6,31 +6,29 @@ import { api } from '../services/api';
 import { AppInfo } from '../types';
 import { Shield, Cpu, Layers, GitBranch, RefreshCw, GitCommit } from 'lucide-react';
 
+import { useScope } from '../context/ScopeContext';
+
 const Overview: React.FC = () => {
   const [apps, setApps] = useState<AppInfo[]>([]);
   const [metrics, setMetrics] = useState({ cpu_utilization: 0, memory_utilization: 0, disk_utilization: 0, network_throughput_bytes: 0 });
   const [gitDetails, setGitDetails] = useState({ owner: '', repository: '', branches: [] as string[], latest_commits: [] as any[] });
-  const [namespace, setNamespace] = useState('devops-nexus-prod');
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
+  const { getScopeParams, getScopeLabel } = useScope();
+
   const fetchDashboardData = async (silent = false) => {
-    if (loading || refreshing) return;
     if (!silent) setLoading(true);
     else setRefreshing(true);
     
     try {
+      const scopeParams = getScopeParams();
       const [appsData, metricsData, gitData] = await Promise.all([
-        api.getApplications(),
-        api.getClusterMetrics(),
+        api.getApplications(scopeParams),
+        api.getClusterMetrics(scopeParams),
         api.getGitHubDetails()
       ]);
-      // Filter workloads matching chosen namespace profile
-      const filteredApps = appsData.filter(app => 
-        (namespace === 'devops-nexus-prod' && app.environment === 'prod') ||
-        (namespace !== 'devops-nexus-prod' && app.environment === 'dev')
-      );
-      setApps(filteredApps);
+      setApps(appsData);
       setMetrics(metricsData);
       setGitDetails(gitData);
     } catch (e) {
@@ -43,7 +41,7 @@ const Overview: React.FC = () => {
 
   useEffect(() => {
     fetchDashboardData();
-  }, [namespace]);
+  }, [JSON.stringify(getScopeParams())]);
 
   // Real-time auto-refresh interval: 5 seconds
   useEffect(() => {
@@ -51,7 +49,7 @@ const Overview: React.FC = () => {
       fetchDashboardData(true);
     }, 5000);
     return () => clearInterval(timer);
-  }, [namespace]);
+  }, [JSON.stringify(getScopeParams())]);
 
   const appColumns = [
     { header: 'Workload', accessor: 'name' as const },
@@ -85,22 +83,15 @@ const Overview: React.FC = () => {
 
         <div className="flex items-center gap-3">
           {refreshing && <RefreshCw className="h-4 w-4 text-blue-500 animate-spin" />}
-          <select 
-            value={namespace}
-            onChange={(e) => setNamespace(e.target.value)}
-            className="px-4 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:outline-none focus:border-blue-500 text-sm font-semibold cursor-pointer"
-          >
-            <option value="devops-nexus-dev">Namespace: dev</option>
-            <option value="devops-nexus-qa">Namespace: qa</option>
-            <option value="devops-nexus-stage">Namespace: staging</option>
-            <option value="devops-nexus-prod">Namespace: production</option>
-          </select>
+          <span className="px-3.5 py-1.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-500 text-xs font-bold">
+            {getScopeLabel()}
+          </span>
         </div>
       </div>
 
       {/* Cluster Aggregated Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card title="Deployments" value={`${apps.length} active`} subtext={`Filtered namespace: ${namespace}`} icon={GitBranch} />
+        <Card title="Deployments" value={`${apps.length} active`} subtext={`Filtered scope: ${getScopeLabel()}`} icon={GitBranch} />
         <Card title="CPU Utilization" value={`${metrics.cpu_utilization.toFixed(1)}%`} subtext="Cluster total capacity load" icon={Cpu} />
         <Card title="Memory Allocation" value={`${metrics.memory_utilization.toFixed(1)}%`} subtext="Memory capacity threshold" icon={Shield} />
         <Card title="Network Speed" value={`${(metrics.network_throughput_bytes / 1024).toFixed(1)} KB/s`} subtext="Active I/O ingress rates" icon={Layers} />

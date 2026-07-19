@@ -2,16 +2,19 @@ import React, { useEffect, useState } from 'react';
 import { api } from '../services/api';
 import { Loading } from '../components/Loading';
 
+import { useScope } from '../context/ScopeContext';
+
 const Metrics: React.FC = () => {
   const [cpuData, setCpuData] = useState<any[]>([]);
   const [memData, setMemData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const { getScopeParams } = useScope();
 
   const fetchMetricsRange = async () => {
     try {
       const [cpu, mem] = await Promise.all([
-        api.getMetricsRange('cpu'),
-        api.getMetricsRange('memory')
+        api.getMetricsRange('cpu', getScopeParams()),
+        api.getMetricsRange('memory', getScopeParams())
       ]);
       setCpuData(cpu);
       setMemData(mem);
@@ -30,7 +33,7 @@ const Metrics: React.FC = () => {
       fetchMetricsRange();
     }, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [JSON.stringify(getScopeParams())]);
 
   // Generates SVG Path coordinates from timeline array
   const generateSvgPath = (data: any[], width: number, height: number): string => {

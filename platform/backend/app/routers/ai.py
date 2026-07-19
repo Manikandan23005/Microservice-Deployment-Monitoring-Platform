@@ -17,12 +17,15 @@ router = APIRouter(
     dependencies=[Depends(get_current_user)]
 )
 
+from app.services.scope_engine import scope_engine
+
 @router.post("/chat", response_model=BaseResponse)
 async def chat_troubleshoot(request: Request, body: AIChatRequest):
     """Answers DevOps incident queries using a conversational AI interface."""
     request_id = getattr(request.state, "request_id", None)
     try:
-        response_data = ai_service.chat_troubleshoot(body.prompt, provider=body.provider, session_id=body.session_id)
+        scope = scope_engine.resolve_scope(body.scope_mode, body.scope_namespace, body.scope_app, body.scope_domain)
+        response_data = ai_service.chat_troubleshoot(body.prompt, provider=body.provider, session_id=body.session_id, scope=scope)
         return BaseResponse(success=True, data=response_data, request_id=request_id)
     except DevOpsNexusException as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
@@ -31,14 +34,19 @@ async def chat_troubleshoot(request: Request, body: AIChatRequest):
 async def chat_troubleshoot_stream(
     prompt: str = Query(..., description="The user query or context to analyze."),
     provider: Optional[str] = Query(None, description="AI completions client provider."),
-    session_id: Optional[str] = Query(None, description="Conversational session tracking identifier.")
+    session_id: Optional[str] = Query(None, description="Conversational session tracking identifier."),
+    scope_mode: Optional[str] = Query("cluster"),
+    namespace: Optional[str] = Query(None),
+    app: Optional[str] = Query(None),
+    domain: Optional[str] = Query(None)
 ):
     """Streams AIOps agent execution phases and final diagnostics payload using Server-Sent Events (SSE)."""
+    scope = scope_engine.resolve_scope(scope_mode, namespace, app, domain)
     
     async def event_generator():
         try:
             # 1. Ask Query Planner for the checklist
-            plan_steps, bypass_llm, direct_result = query_planner.plan_execution(prompt)
+            plan_steps, bypass_llm, direct_result = query_planner.plan_execution(prompt, scope=scope)
             
             if bypass_llm and direct_result:
                 # Direct tool execution path
@@ -77,10 +85,7 @@ async def chat_troubleshoot_stream(
             loop = asyncio.get_event_loop()
             response_data = await loop.run_in_executor(
                 None,
-                ai_service.chat_troubleshoot,
-                prompt,
-                provider,
-                session_id
+                lambda: ai_service.chat_troubleshoot(prompt, provider=provider, session_id=session_id, scope=scope)
             )
             
             yield f"event: done\ndata: {json.dumps(response_data)}\n\n"

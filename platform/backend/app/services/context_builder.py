@@ -7,6 +7,8 @@ from app.services.namespace_service import namespace_service
 from app.services.monitoring_service import monitoring_service
 from app.services.argocd_service import argocd_service
 from app.services.incident_analyzer import incident_analyzer
+from app.services.scope_engine import scope_engine
+from shared.scope import OperationsScope
 from app.utils.cache import ttl_cache
 from app.utils.session_manager import session_manager
 from app.core.logging import logger
@@ -50,7 +52,7 @@ class ContextBuilder:
             logger.warning(f"Failed to list nodes: {str(e)}")
             return []
 
-    def _get_metrics(self) -> Dict[str, Any]:
+    def _get_metrics(Self) -> Dict[str, Any]:
         cached = ttl_cache.get("metrics")
         if cached is not None:
             return cached
@@ -59,8 +61,8 @@ class ContextBuilder:
             ttl_cache.set("metrics", val, ttl=5.0)
             return val
         except Exception as e:
-            logger.warning(f"Failed to get cluster metrics: {str(e)}")
-            return {"cpu_utilization": 0.0, "memory_utilization": 0.0, "disk_utilization": 0.0, "network_throughput_bytes": 0.0}
+            logger.warning(f"Failed to get metrics: {str(e)}")
+            return {"cpu_utilization": 0.0, "memory_utilization": 0.0, "network_throughput_bytes": 0.0}
 
     def _get_argocd_apps(self) -> List[Dict[str, Any]]:
         cached = ttl_cache.get("argocd_apps")
@@ -90,7 +92,6 @@ class ContextBuilder:
         lower = prompt.lower()
         categories = []
         
-        # Categorization heuristics
         if any(w in lower for w in ["health", "status", "ready", "running"]):
             categories.append("Cluster Health")
         if "pod" in lower:
@@ -99,8 +100,6 @@ class ContextBuilder:
             categories.append("Deployments")
         if "namespace" in lower:
             categories.append("Namespaces")
-        if "service" in lower and "pods" not in lower:
-            categories.append("Services")
         if "node" in lower:
             categories.append("Nodes")
         if any(w in lower for w in ["metric", "prometheus", "gauge"]):
@@ -109,39 +108,18 @@ class ContextBuilder:
             categories.append("CPU")
         if "memory" in lower or "oom" in lower:
             categories.append("Memory")
-        if any(w in lower for w in ["network", "speed", "throughput"]):
-            categories.append("Network")
-        if any(w in lower for w in ["storage", "disk", "pv", "pvc"]):
-            categories.append("Storage")
-        if any(w in lower for w in ["log", "loki", "message", "output"]):
+        if any(w in lower for w in ["log", "loki", "message"]):
             categories.append("Logs")
-        if any(w in lower for w in ["event", "schedule", "scheduling"]):
+        if any(w in lower for w in ["event", "schedule"]):
             categories.append("Events")
-        if "crashloop" in lower:
-            categories.append("CrashLoopBackOff")
         if "restart" in lower:
             categories.append("Restart Analysis")
-        if "gitops" in lower:
+        if any(w in lower for w in ["gitops", "argocd"]):
             categories.append("GitOps")
-        if "argocd" in lower:
-            categories.append("ArgoCD")
-        if "prometheus" in lower:
-            categories.append("Prometheus")
-        if "loki" in lower:
-            categories.append("Loki")
-        if any(w in lower for w in ["performance", "latency", "slow"]):
-            categories.append("Performance")
-        if "usage" in lower or "load" in lower:
-            categories.append("Resource Usage")
-        if any(w in lower for w in ["incident", "outage", "down", "error", "fail"]):
+        if any(w in lower for w in ["incident", "outage", "error", "fail"]):
             categories.append("Incidents")
-        if any(w in lower for w in ["security", "secret", "rbac", "policy"]):
-            categories.append("Security")
             
-        if not categories:
-            categories.append("General Cluster Questions")
-            
-        return categories
+        return categories if categories else ["General Operations"]
 
     def build_incident_context(self, pod_name: str, namespace: str) -> Dict[str, Any]:
         """Gathers complete context details for a specific pod incident."""
@@ -193,10 +171,18 @@ class ContextBuilder:
 
         return context
 
-    def build_query_context(self, prompt: str, session_id: Optional[str] = None) -> Dict[str, Any]:
-        """Detects query intent, runs telemetry diagnostics, and selectively queries runtime resources."""
+    def build_query_context(self, prompt: str, session_id: Optional[str] = None, scope: Optional[OperationsScope] = None) -> Dict[str, Any]:
+        """Detects query intent, applies inherited operations scope, and selectively queries runtime resources."""
+        current_scope = scope or scope_engine.resolve_scope()
         categories = self.classify_query(prompt)
+        
         context = {
+            "operations_scope": {
+                "mode": current_scope.mode.value,
+                "namespace": current_scope.namespace,
+                "application": current_scope.application,
+                "domain": current_scope.domain.value if current_scope.domain else None
+            },
             "query_categories": categories,
             "resolved_service": None,
             "telemetry_diagnostics": []
@@ -207,72 +193,27 @@ class ContextBuilder:
         if resolved_service:
             context["resolved_service"] = resolved_service
 
-        # 2. Selective routing queries
-        query_k8s = any(c in categories for c in ["Cluster Health", "Pods", "Deployments", "Namespaces", "Services", "Nodes", "Events", "CrashLoopBackOff", "Restart Analysis", "Incidents", "General Cluster Questions"])
-        query_metrics = any(c in categories for c in ["Metrics", "CPU", "Memory", "Network", "Storage", "Performance", "Resource Usage", "Incidents", "General Cluster Questions"])
-        query_gitops = any(c in categories for c in ["GitOps", "ArgoCD", "Incidents", "General Cluster Questions"])
-        query_logs = any(c in categories for c in ["Logs", "Loki", "CrashLoopBackOff", "Restart Analysis", "Incidents"])
+        # 2. Selective scope-filtered queries
+        raw_pods = self._get_pods()
+        pods = scope_engine.filter_pods(raw_pods, current_scope)
+        context["pods"] = pods
 
-        pods = []
-        deployments = []
-        metrics = {}
-        argocd_apps = []
+        raw_deps = self._get_deployments()
+        deps = scope_engine.filter_deployments(raw_deps, current_scope)
+        context["deployments"] = deps
 
-        if query_k8s:
-            pods = self._get_pods()
-            deployments = self._get_deployments()
-            context["kubernetes_summary"] = {
-                "pods_count": len(pods),
-                "deployments_count": len(deployments),
-                "nodes_count": len(self._get_nodes()),
-                "namespaces": [ns["name"] for ns in self._get_namespaces()]
-            }
+        context["metrics"] = self._get_metrics()
 
-        if query_metrics:
-            metrics = self._get_metrics()
-            context["prometheus_metrics"] = metrics
+        raw_apps = self._get_argocd_apps()
+        apps = scope_engine.filter_argocd_apps(raw_apps, current_scope)
+        context["argocd_status"] = apps
 
-        if query_gitops:
-            argocd_apps = self._get_argocd_apps()
-            context["argocd_applications"] = [
-                {
-                    "name": app.get("name"),
-                    "sync_status": app.get("sync_status"),
-                    "health_status": app.get("health_status"),
-                    "revision": app.get("path")
-                }
-                for app in argocd_apps
-            ]
+        raw_ns = self._get_namespaces()
+        context["namespaces"] = scope_engine.filter_namespaces(raw_ns, current_scope)
 
-        # 3. Microservice/Resource Focused Context Correlation
-        if resolved_service and query_k8s:
-            matching_pods = [p for p in pods if resolved_service in p["name"].lower()]
-            if matching_pods:
-                target_pod = matching_pods[0]
-                focused_details = pod_service.describe_pod(target_pod["namespace"], target_pod["name"])
-                
-                context["focused_resource"] = {
-                    "kind": "Pod",
-                    "name": target_pod["name"],
-                    "namespace": target_pod["namespace"],
-                    "status": target_pod["status"],
-                    "restarts": target_pod["restarts"],
-                    "creation_timestamp": target_pod["creation_timestamp"],
-                    "events": focused_details.get("events", [])
-                }
-                
-                # Retrieve logs if requested or if crashing
-                if query_logs or target_pod["restarts"] > 0 or target_pod["status"] != "Running":
-                    try:
-                        logs = pod_service.get_pod_logs(target_pod["namespace"], target_pod["name"], tail_lines=25)
-                        context["focused_resource"]["recent_logs"] = logs
-                    except Exception as e:
-                        context["focused_resource"]["recent_logs"] = f"Unavailable: {str(e)}"
-
-        # 4. Telemetry Incidents Analyzer Pipeline
-        if pods or deployments or metrics or argocd_apps:
-            detected = incident_analyzer.analyze_active_incidents(pods, deployments, metrics, argocd_apps)
-            context["telemetry_diagnostics"] = detected
+        # 3. Incident heuristics analyzer
+        diagnostics = incident_analyzer.analyze_active_incidents(pods, deps, context["metrics"], apps)
+        context["telemetry_diagnostics"] = diagnostics
 
         return context
 

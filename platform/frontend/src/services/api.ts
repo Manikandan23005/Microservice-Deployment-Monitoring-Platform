@@ -39,9 +39,10 @@ apiClient.interceptors.response.use(
 );
 
 export const api = {
-  getNamespaces: async (): Promise<any[]> => {
+  getNamespaces: async (scopeParams?: Record<string, string>): Promise<any[]> => {
     try {
-      const response = await apiClient.get('/api/v1/k8s/namespaces');
+      const params = new URLSearchParams(scopeParams || {});
+      const response = await apiClient.get(`/api/v1/k8s/namespaces?${params.toString()}`);
       if (response.data && response.data.success) {
         return response.data.data.map((ns: any) => ({
           name: ns.name,
@@ -57,9 +58,10 @@ export const api = {
     return [];
   },
 
-  getApplications: async (): Promise<AppInfo[]> => {
+  getApplications: async (scopeParams?: Record<string, string>): Promise<AppInfo[]> => {
     try {
-      const response = await apiClient.get('/api/v1/gitops/argocd/applications');
+      const params = new URLSearchParams(scopeParams || {});
+      const response = await apiClient.get(`/api/v1/gitops/argocd/applications?${params.toString()}`);
       if (response.data && response.data.success) {
         return response.data.data.map((app: any) => ({
           name: app.name,
@@ -97,9 +99,24 @@ export const api = {
     return [];
   },
 
-  getClusterMetrics: async (): Promise<any> => {
+  getDeployments: async (ns?: string, scopeParams?: Record<string, string>): Promise<any[]> => {
     try {
-      const response = await apiClient.get('/api/v1/monitoring/metrics');
+      const params = new URLSearchParams(scopeParams || {});
+      if (ns) params.append('namespace', ns);
+      const response = await apiClient.get(`/api/v1/k8s/deployments?${params.toString()}`);
+      if (response.data && response.data.success) {
+        return response.data.data;
+      }
+    } catch (e) {
+      console.warn("Failed to fetch deployments:", e);
+    }
+    return [];
+  },
+
+  getClusterMetrics: async (scopeParams?: Record<string, string>): Promise<any> => {
+    try {
+      const params = new URLSearchParams(scopeParams || {});
+      const response = await apiClient.get(`/api/v1/monitoring/metrics?${params.toString()}`);
       if (response.data && response.data.success) {
         return response.data.data;
       }
@@ -114,9 +131,11 @@ export const api = {
     };
   },
 
-  getMetricsRange: async (metricType: string): Promise<any[]> => {
+  getMetricsRange: async (metricType: string, scopeParams?: Record<string, string>): Promise<any[]> => {
     try {
-      const response = await apiClient.get(`/api/v1/monitoring/metrics/range?metric_type=${metricType}`);
+      const params = new URLSearchParams(scopeParams || {});
+      params.append('metric_type', metricType);
+      const response = await apiClient.get(`/api/v1/monitoring/metrics/range?${params.toString()}`);
       if (response.data && response.data.success) {
         return response.data.data.values;
       }
@@ -143,9 +162,11 @@ export const api = {
     };
   },
 
-  getPods: async (): Promise<PodInfo[]> => {
+  getPods: async (ns?: string, scopeParams?: Record<string, string>): Promise<PodInfo[]> => {
     try {
-      const response = await apiClient.get('/api/v1/k8s/pods');
+      const params = new URLSearchParams(scopeParams || {});
+      if (ns) params.append('namespace', ns);
+      const response = await apiClient.get(`/api/v1/k8s/pods?${params.toString()}`);
       if (response.data && response.data.success) {
         return response.data.data.map((pod: any) => ({
           name: pod.name,
@@ -186,12 +207,14 @@ export const api = {
     return [];
   },
 
-  getLogs: async (pod: string, search?: string): Promise<LogLine[]> => {
+  getLogs: async (pod: string, search?: string, limit: number = 100, scopeParams?: Record<string, string>): Promise<LogLine[]> => {
     try {
-      const params: any = { pod };
-      if (search) params.search = search;
+      const params = new URLSearchParams(scopeParams || {});
+      params.append('pod', pod);
+      if (search) params.append('search', search);
+      params.append('limit', limit.toString());
       
-      const response = await apiClient.get('/api/v1/monitoring/logs', { params });
+      const response = await apiClient.get(`/api/v1/monitoring/logs?${params.toString()}`);
       if (response.data && response.data.success) {
         return response.data.data;
       }
@@ -239,13 +262,19 @@ export const api = {
     prompt: string,
     provider: string,
     sessionId: string,
+    scopeParams: Record<string, string> | undefined,
     onProgress: (status: string) => void,
     onDone: (data: AIResponse) => void,
     onError: (err: any) => void
   ) => {
     const baseUrl = apiClient.defaults.baseURL || '';
     const token = localStorage.getItem('session_token') || '';
-    const url = `${baseUrl}/api/v1/ai/chat/stream?prompt=${encodeURIComponent(prompt)}&provider=${provider}&session_id=${sessionId}&token=${encodeURIComponent(token)}`;
+    const params = new URLSearchParams(scopeParams || {});
+    params.append('prompt', prompt);
+    params.append('provider', provider);
+    params.append('session_id', sessionId);
+    params.append('token', token);
+    const url = `${baseUrl}/api/v1/ai/chat/stream?${params.toString()}`;
     const eventSource = new EventSource(url);
 
     eventSource.addEventListener('progress', (e: any) => {
