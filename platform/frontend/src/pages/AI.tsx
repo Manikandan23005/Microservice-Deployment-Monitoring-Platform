@@ -27,6 +27,9 @@ const AI: React.FC = () => {
   // Action status dictionary tracker
   const [actionStates, setActionStates] = useState<Record<string, 'idle' | 'running' | 'success' | 'failed'>>({});
 
+  const userRole = localStorage.getItem('user_role') || 'Viewer';
+  const isActionAllowed = ['Administrator', 'DevOps Engineer', 'Developer'].includes(userRole);
+
   const handleSend = (text: string) => {
     if (!text.trim() || loading) return;
 
@@ -258,14 +261,16 @@ const AI: React.FC = () => {
                               {action && (
                                 <div className="mt-1 flex items-center gap-2">
                                   <button
-                                    onClick={() => handleTriggerAction(actionKey, action.type, action.ns, action.svc, action.replicas)}
-                                    disabled={state === 'running'}
+                                    onClick={() => isActionAllowed && handleTriggerAction(actionKey, action.type, action.ns, action.svc, action.replicas)}
+                                    disabled={state === 'running' || !isActionAllowed}
                                     className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all ${
+                                      !isActionAllowed ? 'bg-slate-300 dark:bg-slate-800 text-slate-500 cursor-not-allowed opacity-50' :
                                       state === 'running' ? 'bg-slate-300 dark:bg-slate-800 text-slate-500 cursor-not-allowed' :
                                       state === 'success' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
                                       state === 'failed' ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20' :
                                       'bg-blue-600 hover:bg-blue-500 text-white cursor-pointer'
                                     }`}
+                                    title={!isActionAllowed ? "Insufficient permissions (Developer role required)" : ""}
                                   >
                                     <Play className="h-3 w-3" />
                                     {state === 'running' ? 'Running...' :

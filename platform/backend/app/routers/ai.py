@@ -9,8 +9,13 @@ from shared.exceptions import DevOpsNexusException
 import asyncio
 import json
 from typing import Optional
+from fastapi import Depends
+from app.dependencies.auth import get_current_user
 
-router = APIRouter(prefix="/api/v1/ai")
+router = APIRouter(
+    prefix="/api/v1/ai",
+    dependencies=[Depends(get_current_user)]
+)
 
 @router.post("/chat", response_model=BaseResponse)
 async def chat_troubleshoot(request: Request, body: AIChatRequest):

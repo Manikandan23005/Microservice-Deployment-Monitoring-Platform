@@ -11,6 +11,17 @@ const apiClient = axios.create({
   }
 });
 
+// Outgoing request interceptor to inject JWT Authorization token header
+apiClient.interceptors.request.use((config) => {
+  const token = localStorage.getItem('session_token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+}, (error) => {
+  return Promise.reject(error);
+});
+
 export const api = {
   getNamespaces: async (): Promise<any[]> => {
     try {
@@ -274,5 +285,41 @@ export const api = {
       console.error(`Failed to scale deployment ${name} to ${replicas}:`, e);
       return false;
     }
+  },
+
+  login: async (username: string, password: string): Promise<any> => {
+    const response = await apiClient.post('/api/v1/auth/login', { username, password });
+    if (response.data && response.data.success) {
+      const { token, role } = response.data.data;
+      localStorage.setItem('session_token', token);
+      localStorage.setItem('user_role', role);
+      localStorage.setItem('username', username);
+      return response.data.data;
+    }
+    throw new Error(response.data?.error?.message || 'Login failed');
+  },
+
+  logout: async (): Promise<void> => {
+    try {
+      await apiClient.post('/api/v1/auth/logout');
+    } catch (e) {
+      console.warn("Logout request failed on server:", e);
+    } finally {
+      localStorage.removeItem('session_token');
+      localStorage.removeItem('user_role');
+      localStorage.removeItem('username');
+    }
+  },
+
+  getPlatformMetrics: async (): Promise<any> => {
+    try {
+      const response = await apiClient.get('/api/v1/monitoring/platform-metrics');
+      if (response.data && response.data.success) {
+        return response.data.data;
+      }
+    } catch (e) {
+      console.warn("Failed to fetch platform metrics:", e);
+    }
+    return null;
   }
 };

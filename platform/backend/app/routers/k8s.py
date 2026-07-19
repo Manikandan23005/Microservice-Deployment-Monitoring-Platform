@@ -9,8 +9,13 @@ from app.services.pod_service import pod_service
 from app.services.deployment_service import deployment_service
 from app.services.ingress_service import ingress_service
 from shared.exceptions import KubernetesClientException
+from fastapi import Depends
+from app.dependencies.auth import get_current_user, check_role
 
-router = APIRouter(prefix="/api/v1/k8s")
+router = APIRouter(
+    prefix="/api/v1/k8s",
+    dependencies=[Depends(get_current_user)]
+)
 
 @router.get("/namespaces", response_model=BaseResponse)
 async def list_namespaces(request: Request):
@@ -75,7 +80,7 @@ async def list_deployments(request: Request, namespace: Optional[str] = Query(No
     except KubernetesClientException as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
-@router.post("/deployments/{namespace}/{deployment_name}/restart", response_model=BaseResponse)
+@router.post("/deployments/{namespace}/{deployment_name}/restart", response_model=BaseResponse, dependencies=[Depends(check_role(["Administrator", "DevOps Engineer", "Developer"]))])
 async def restart_deployment(
     request: Request,
     namespace: str = Path(..., description="Namespace scope."),
@@ -88,7 +93,7 @@ async def restart_deployment(
     except KubernetesClientException as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
-@router.post("/deployments/{namespace}/{deployment_name}/scale", response_model=BaseResponse)
+@router.post("/deployments/{namespace}/{deployment_name}/scale", response_model=BaseResponse, dependencies=[Depends(check_role(["Administrator", "DevOps Engineer", "Developer"]))])
 async def scale_deployment(
     request: Request,
     body: ScaleRequest,

@@ -4,6 +4,7 @@ import {
   LayoutDashboard, GitBranch, Shield, Cpu, Layers, BarChart3, 
   Terminal, AlertTriangle, Bot, Settings, Sun, Moon, Menu, X, TerminalSquare
 } from 'lucide-react';
+import { api } from '../services/api';
 
 const DashboardLayout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -116,9 +117,28 @@ const DashboardLayout: React.FC = () => {
               {darkMode ? <Sun className="h-4 w-4 text-amber-500" /> : <Moon className="h-4 w-4 text-indigo-500" />}
             </button>
 
-            {/* User Avatar stub */}
-            <div className="h-9 w-9 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-md shadow-blue-500/10">
-              DX
+            {/* Logged in User info & Logout */}
+            <div className="flex items-center gap-3 pl-2 border-l border-slate-200 dark:border-slate-800">
+              <div className="text-right hidden sm:block">
+                <div className="text-xs font-bold text-slate-800 dark:text-white capitalize">
+                  {localStorage.getItem('username') || 'Operator'}
+                </div>
+                <div className="text-[10px] font-semibold text-blue-500">
+                  {localStorage.getItem('user_role') || 'Viewer'}
+                </div>
+              </div>
+              <div className="h-9 w-9 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-md shadow-blue-500/10">
+                {(localStorage.getItem('username') || 'Op').substring(0, 2).toUpperCase()}
+              </div>
+              <button
+                onClick={async () => {
+                  await api.logout();
+                  window.location.href = '/login';
+                }}
+                className="px-2.5 py-1.5 rounded-lg border border-rose-500/20 text-rose-500 bg-rose-500/5 hover:bg-rose-500/15 text-xs font-bold transition-all"
+              >
+                Logout
+              </button>
             </div>
           </div>
         </header>

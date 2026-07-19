@@ -5,8 +5,14 @@ from app.schemas.responses import BaseResponse
 from app.services.monitoring_service import monitoring_service
 from app.services.log_service import log_service
 from shared.exceptions import TelemetryFetchException
+from fastapi import Depends
+from app.dependencies.auth import get_current_user
+from app.utils.observability import observability_metrics
 
-router = APIRouter(prefix="/api/v1/monitoring")
+router = APIRouter(
+    prefix="/api/v1/monitoring",
+    dependencies=[Depends(get_current_user)]
+)
 
 @router.get("/metrics", response_model=BaseResponse)
 async def get_cluster_metrics(request: Request):
@@ -45,3 +51,13 @@ async def get_logs(
         return BaseResponse(success=True, data=data, request_id=request_id)
     except TelemetryFetchException as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+@router.get("/platform-metrics", response_model=BaseResponse)
+async def get_platform_metrics(request: Request):
+    """Retrieves custom platform instrumentation and latency performance metrics."""
+    request_id = getattr(request.state, "request_id", None)
+    return BaseResponse(
+        success=True,
+        data=observability_metrics.get_summary(),
+        request_id=request_id
+    )

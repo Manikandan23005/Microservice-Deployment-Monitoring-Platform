@@ -14,6 +14,9 @@ const Deployments: React.FC = () => {
   const [selectedApp, setSelectedApp] = useState<AppInfo | null>(null);
   const [historyLogs, setHistoryLogs] = useState<any[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  
+  const userRole = localStorage.getItem('user_role') || 'Viewer';
+  const isGitOpsAllowed = ['Administrator', 'DevOps Engineer'].includes(userRole);
 
   const fetchApps = async () => {
     try {
@@ -92,9 +95,14 @@ const Deployments: React.FC = () => {
       accessor: (item: AppInfo) => (
         <div className="flex gap-2.5">
           <button
-            onClick={() => handleSync(item.name)}
-            disabled={triggering === item.name}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600/10 border border-blue-600/20 text-blue-500 hover:bg-blue-600 hover:text-white transition-all text-xs font-bold disabled:opacity-50"
+            onClick={() => isGitOpsAllowed && handleSync(item.name)}
+            disabled={triggering === item.name || !isGitOpsAllowed}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all ${
+              !isGitOpsAllowed 
+                ? 'bg-slate-800/20 border-slate-800/40 text-slate-500 cursor-not-allowed opacity-50' 
+                : 'bg-blue-600/10 border-blue-600/20 text-blue-500 hover:bg-blue-600 hover:text-white'
+            }`}
+            title={!isGitOpsAllowed ? "Insufficient permissions (DevOps/Admin required)" : ""}
           >
             {triggering === item.name ? (
               <RefreshCw className="h-3 w-3 animate-spin" />
@@ -174,8 +182,14 @@ const Deployments: React.FC = () => {
                       </div>
 
                       <button
-                        onClick={() => handleRollback(selectedApp.name, log.id || idx + 1)}
-                        className="px-3 py-1.5 rounded-lg bg-rose-600/10 border border-rose-600/20 text-rose-500 hover:bg-rose-600 hover:text-white transition-all text-xs font-bold"
+                        onClick={() => isGitOpsAllowed && handleRollback(selectedApp.name, log.id || idx + 1)}
+                        disabled={!isGitOpsAllowed}
+                        className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${
+                          !isGitOpsAllowed 
+                            ? 'bg-slate-800/20 border-slate-800/40 text-slate-500 cursor-not-allowed opacity-50' 
+                            : 'bg-rose-600/10 border-rose-600/20 text-rose-500 hover:bg-rose-600 hover:text-white'
+                        }`}
+                        title={!isGitOpsAllowed ? "Insufficient permissions (DevOps/Admin required)" : ""}
                       >
                         Rollback
                       </button>

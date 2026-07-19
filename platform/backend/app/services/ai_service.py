@@ -1,6 +1,7 @@
 # --- Observability AI Analysis Service ---
 import re
 import json
+import time
 from typing import Dict, Any, Optional, List
 from app.clients.llm import llm_client
 from app.services.context_builder import context_builder
@@ -25,7 +26,14 @@ class AIService:
             return direct_result
 
         # 2. Flow through Context Builder if reasoning/diagnostics are needed
+        start_ctx = time.perf_counter()
         context = context_builder.build_query_context(prompt, session_id=session_id)
+        duration_ctx = time.perf_counter() - start_ctx
+        try:
+            from app.utils.observability import observability_metrics
+            observability_metrics.record_context(duration_ctx)
+        except Exception:
+            pass
         
         # Pull conversational history
         history = session_manager.get_history(session_id)
@@ -56,7 +64,15 @@ class AIService:
         )
         
         try:
+            start_ai = time.perf_counter()
             raw_response = llm_client.generate_chat_response(prompt_with_context, system_prompt=system_prompt)
+            duration_ai = time.perf_counter() - start_ai
+            try:
+                from app.utils.observability import observability_metrics
+                observability_metrics.record_ai(duration_ai)
+            except Exception:
+                pass
+                
             parsed_data = self._parse_llm_json(raw_response)
             
             # Save user prompt & AI summary to history for memory tracking
@@ -108,7 +124,15 @@ class AIService:
         )
 
         try:
+            start_ai = time.perf_counter()
             raw_response = llm_client.generate_chat_response(prompt, system_prompt=system_prompt)
+            duration_ai = time.perf_counter() - start_ai
+            try:
+                from app.utils.observability import observability_metrics
+                observability_metrics.record_ai(duration_ai)
+            except Exception:
+                pass
+                
             return self._parse_llm_json(raw_response)
         except Exception as e:
             logger.warning(f"Live LLM incident analysis failed: {str(e)}")

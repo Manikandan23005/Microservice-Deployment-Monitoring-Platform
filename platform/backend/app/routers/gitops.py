@@ -5,8 +5,13 @@ from app.schemas.responses import BaseResponse
 from app.services.gitops_service import gitops_service
 from app.services.argocd_service import argocd_service
 from shared.exceptions import DevOpsNexusException
+from fastapi import Depends
+from app.dependencies.auth import get_current_user, check_role
 
-router = APIRouter(prefix="/api/v1/gitops")
+router = APIRouter(
+    prefix="/api/v1/gitops",
+    dependencies=[Depends(get_current_user)]
+)
 
 @router.get("/github/workflows", response_model=BaseResponse)
 async def get_github_workflows(
@@ -46,7 +51,7 @@ async def list_argocd_applications(request: Request):
     except DevOpsNexusException as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
-@router.post("/argocd/applications/{app_name}/sync", response_model=BaseResponse)
+@router.post("/argocd/applications/{app_name}/sync", response_model=BaseResponse, dependencies=[Depends(check_role(["Administrator", "DevOps Engineer"]))])
 async def sync_argocd_application(
     request: Request,
     app_name: str = Path(..., description="Target application name.")
@@ -59,7 +64,7 @@ async def sync_argocd_application(
     except DevOpsNexusException as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
-@router.post("/argocd/applications/{app_name}/refresh", response_model=BaseResponse)
+@router.post("/argocd/applications/{app_name}/refresh", response_model=BaseResponse, dependencies=[Depends(check_role(["Administrator", "DevOps Engineer"]))])
 async def refresh_argocd_application(
     request: Request,
     app_name: str = Path(..., description="Target application name.")
@@ -72,7 +77,7 @@ async def refresh_argocd_application(
     except DevOpsNexusException as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
-@router.post("/argocd/applications/{app_name}/rollback", response_model=BaseResponse)
+@router.post("/argocd/applications/{app_name}/rollback", response_model=BaseResponse, dependencies=[Depends(check_role(["Administrator", "DevOps Engineer"]))])
 async def rollback_argocd_application(
     request: Request,
     app_name: str = Path(..., description="Target application name."),

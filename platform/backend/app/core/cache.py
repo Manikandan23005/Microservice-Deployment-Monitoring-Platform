@@ -28,20 +28,28 @@ class PlatformCache:
             self.client = None
 
     def get(self, key: str) -> Optional[str]:
+        val = None
         if self.client:
             try:
-                return self.client.get(key)
+                val = self.client.get(key)
             except Exception:
                 pass
+        else:
+            import time
+            if key in self._local_cache:
+                entry = self._local_cache[key]
+                if time.time() > entry["expires_at"]:
+                    del self._local_cache[key]
+                else:
+                    val = entry["value"]
         
-        import time
-        if key in self._local_cache:
-            entry = self._local_cache[key]
-            if time.time() > entry["expires_at"]:
-                del self._local_cache[key]
-                return None
-            return entry["value"]
-        return None
+        try:
+            from app.utils.observability import observability_metrics
+            observability_metrics.record_cache(val is not None)
+        except Exception:
+            pass
+            
+        return val
 
     def set(self, key: str, value: str, ex_seconds: int = 300) -> bool:
         if self.client:

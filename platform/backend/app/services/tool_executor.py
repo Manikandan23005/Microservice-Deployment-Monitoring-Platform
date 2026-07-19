@@ -7,7 +7,31 @@ from app.services.monitoring_service import monitoring_service
 from app.services.argocd_service import argocd_service
 from app.utils.cache import ttl_cache
 from app.core.logging import logger
+import time
+from functools import wraps
 
+def time_tool_execution(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        start = time.perf_counter()
+        try:
+            return func(*args, **kwargs)
+        finally:
+            duration = time.perf_counter() - start
+            try:
+                from app.utils.observability import observability_metrics
+                observability_metrics.record_tool(duration)
+            except Exception:
+                pass
+    return wrapper
+
+def instrument_tools(cls):
+    for attr_name, attr_value in list(cls.__dict__.items()):
+        if callable(attr_value) and not attr_name.startswith("__"):
+            setattr(cls, attr_name, time_tool_execution(attr_value))
+    return cls
+
+@instrument_tools
 class ToolExecutor:
     """Strongly typed tool executor layer that fetches telemetry directly from infrastructure client APIs."""
 

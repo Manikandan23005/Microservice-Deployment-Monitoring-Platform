@@ -5,6 +5,8 @@ class PlatformSettings(BaseSettings):
     # API Backend Server
     PORT: int = 8000
     LOG_LEVEL: str = "info"
+    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:5173,http://localhost:8000,http://127.0.0.1:3000,http://127.0.0.1:5173"
+    JWT_SECRET_KEY: str = "devops-nexus-super-secure-jwt-key-2026-production"
     
     # Observability Stack
     PROMETHEUS_URL: str = "http://prometheus-service.devops-nexus.svc.cluster.local:9090"
