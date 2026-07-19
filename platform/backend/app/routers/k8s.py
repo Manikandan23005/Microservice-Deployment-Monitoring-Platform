@@ -111,20 +111,36 @@ async def list_deployments(
     except KubernetesClientException as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
-@router.post("/deployments/{namespace}/{name}/restart", response_model=BaseResponse, dependencies=[Depends(check_role(["Administrator", "DevOps Engineer", "Developer"]))])
+from app.services.authz_engine import authz_engine
+from app.services.audit_service import audit_service
+
+@router.post("/deployments/{namespace}/{name}/restart", response_model=BaseResponse)
 async def restart_deployment(
     request: Request,
     namespace: str = Path(..., description="Namespace scope."),
     name: str = Path(..., description="Target deployment identifier.")
 ):
     request_id = getattr(request.state, "request_id", None)
+    user_dict = get_current_user(request)
+    username = user_dict.get("username") or user_dict.get("sub") or "viewer"
+    
+    authz_engine.authorize(username, "deployments", "restart_deployment", namespace=namespace, application=name)
     try:
         data = deployment_service.restart_deployment(namespace, name)
+        audit_service.log_action(
+            username=username,
+            role_name=user_dict.get("role", "Viewer"),
+            action="restart_deployment",
+            target_resource=f"deployment/{name}",
+            namespace=namespace,
+            application=name,
+            client_ip=request.client.host if request.client else "127.0.0.1"
+        )
         return BaseResponse(success=True, data=data, request_id=request_id)
     except KubernetesClientException as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
-@router.post("/deployments/{namespace}/{name}/scale", response_model=BaseResponse, dependencies=[Depends(check_role(["Administrator", "DevOps Engineer", "Developer"]))])
+@router.post("/deployments/{namespace}/{name}/scale", response_model=BaseResponse)
 async def scale_deployment(
     request: Request,
     body: ScaleRequest,
@@ -132,8 +148,22 @@ async def scale_deployment(
     name: str = Path(..., description="Target deployment identifier.")
 ):
     request_id = getattr(request.state, "request_id", None)
+    user_dict = get_current_user(request)
+    username = user_dict.get("username") or user_dict.get("sub") or "viewer"
+
+    authz_engine.authorize(username, "deployments", "scale_deployment", namespace=namespace, application=name)
     try:
         data = deployment_service.scale_deployment(namespace, name, body.replicas)
+        audit_service.log_action(
+            username=username,
+            role_name=user_dict.get("role", "Viewer"),
+            action="scale_deployment",
+            target_resource=f"deployment/{name}",
+            namespace=namespace,
+            application=name,
+            new_value=f"replicas={body.replicas}",
+            client_ip=request.client.host if request.client else "127.0.0.1"
+        )
         return BaseResponse(success=True, data=data, request_id=request_id)
     except KubernetesClientException as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))

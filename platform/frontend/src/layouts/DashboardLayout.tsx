@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, GitBranch, Cpu, Layers, BarChart3, 
-  Terminal, AlertTriangle, Bot, Settings, Sun, Moon, Menu, X, TerminalSquare, Globe, Server
+  Terminal, AlertTriangle, Bot, Settings, Sun, Moon, Menu, X, TerminalSquare, Globe, Server,
+  Users, Shield, Grid, ShieldAlert
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useScope, ScopeMode, InfrastructureDomain } from '../context/ScopeContext';
@@ -32,7 +33,10 @@ const DashboardLayout: React.FC = () => {
     }
   }, [darkMode]);
 
-  const navItems = [
+  const userRole = localStorage.getItem('user_role') || 'Viewer';
+  const isAdmin = ['Administrator', 'Platform Engineer'].includes(userRole);
+
+  const mainNavItems = [
     { path: '/overview', label: 'Overview', icon: LayoutDashboard },
     { path: '/deployments', label: 'Deployments', icon: GitBranch },
     { path: '/pods', label: 'Pods', icon: Cpu },
@@ -42,10 +46,17 @@ const DashboardLayout: React.FC = () => {
     { path: '/logs', label: 'Logs', icon: Terminal },
     { path: '/alerts', label: 'Alerts', icon: AlertTriangle },
     { path: '/ai', label: 'AI Assistant', icon: Bot },
-    { path: '/settings', label: 'Settings', icon: Settings },
   ];
 
-  const currentNav = navItems.find(item => item.path === location.pathname);
+  const adminNavItems = [
+    { path: '/admin/users', label: 'Users', icon: Users },
+    { path: '/admin/roles', label: 'Roles', icon: Shield },
+    { path: '/admin/permissions', label: 'Permissions Matrix', icon: Grid },
+    { path: '/admin/audit', label: 'Audit Logs', icon: ShieldAlert },
+  ];
+
+  const allNavItems = [...mainNavItems, ...(isAdmin ? adminNavItems : []), ...(isAdmin ? [{ path: '/settings', label: 'Settings', icon: Settings }] : [])];
+  const currentNav = allNavItems.find(item => item.path === location.pathname);
   const breadcrumb = currentNav ? currentNav.label : 'Overview';
 
   const knownApps = [
@@ -81,8 +92,8 @@ const DashboardLayout: React.FC = () => {
           </div>
 
           {/* Navigation Links */}
-          <nav className="px-3 space-y-1.5">
-            {navItems.map((item) => {
+          <nav className="px-3 space-y-1.5 overflow-y-auto max-h-[calc(100vh-10rem)]">
+            {allNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;
               return (

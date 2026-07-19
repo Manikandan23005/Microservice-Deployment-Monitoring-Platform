@@ -108,38 +108,40 @@ const Login: React.FC = () => {
           </button>
         </form>
 
-        {/* Roles Quick Presets for Enterprise Testing */}
-        <div className="space-y-3 pt-2">
-          <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 text-center">
-            Or Sign In As Preset Role
+        {/* Roles Quick Presets for Enterprise Testing (Controlled by DEV_MODE) */}
+        {localStorage.getItem('dev_mode') !== 'false' && (
+          <div className="space-y-3 pt-2">
+            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 text-center">
+              Dev Mode Preset Roles
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button 
+                onClick={() => selectPreset('admin', 'admin123')}
+                className="px-3 py-2 rounded-lg bg-slate-800/40 hover:bg-slate-800 text-[11px] text-slate-300 font-medium border border-slate-800 text-center transition-all"
+              >
+                Administrator
+              </button>
+              <button 
+                onClick={() => selectPreset('devops', 'devops123')}
+                className="px-3 py-2 rounded-lg bg-slate-800/40 hover:bg-slate-800 text-[11px] text-slate-300 font-medium border border-slate-800 text-center transition-all"
+              >
+                DevOps Engineer
+              </button>
+              <button 
+                onClick={() => selectPreset('developer', 'developer123')}
+                className="px-3 py-2 rounded-lg bg-slate-800/40 hover:bg-slate-800 text-[11px] text-slate-300 font-medium border border-slate-800 text-center transition-all"
+              >
+                Developer
+              </button>
+              <button 
+                onClick={() => selectPreset('viewer', 'viewer123')}
+                className="px-3 py-2 rounded-lg bg-slate-800/40 hover:bg-slate-800 text-[11px] text-slate-300 font-medium border border-slate-800 text-center transition-all"
+              >
+                Viewer
+              </button>
+            </div>
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            <button 
-              onClick={() => selectPreset('admin', 'admin123')}
-              className="px-3 py-2 rounded-lg bg-slate-800/40 hover:bg-slate-800 text-[11px] text-slate-300 font-medium border border-slate-800 text-center transition-all"
-            >
-              Administrator
-            </button>
-            <button 
-              onClick={() => selectPreset('devops', 'devops123')}
-              className="px-3 py-2 rounded-lg bg-slate-800/40 hover:bg-slate-800 text-[11px] text-slate-300 font-medium border border-slate-800 text-center transition-all"
-            >
-              DevOps Engineer
-            </button>
-            <button 
-              onClick={() => selectPreset('developer', 'developer123')}
-              className="px-3 py-2 rounded-lg bg-slate-800/40 hover:bg-slate-800 text-[11px] text-slate-300 font-medium border border-slate-800 text-center transition-all"
-            >
-              Developer
-            </button>
-            <button 
-              onClick={() => selectPreset('viewer', 'viewer123')}
-              className="px-3 py-2 rounded-lg bg-slate-800/40 hover:bg-slate-800 text-[11px] text-slate-300 font-medium border border-slate-800 text-center transition-all"
-            >
-              Read Only
-            </button>
-          </div>
-        </div>
+        )}
 
       </div>
     </div>

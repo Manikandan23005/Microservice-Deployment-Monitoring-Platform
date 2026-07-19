@@ -61,20 +61,35 @@ async def list_argocd_applications(
     except DevOpsNexusException as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
-@router.post("/argocd/applications/{app_name}/sync", response_model=BaseResponse, dependencies=[Depends(check_role(["Administrator", "DevOps Engineer"]))])
+from app.services.authz_engine import authz_engine
+from app.services.audit_service import audit_service
+
+@router.post("/argocd/applications/{app_name}/sync", response_model=BaseResponse)
 async def sync_argocd_application(
     request: Request,
     app_name: str = Path(..., description="Target application name.")
 ):
     """Triggers sync deployment inside ArgoCD."""
     request_id = getattr(request.state, "request_id", None)
+    user_dict = get_current_user(request)
+    username = user_dict.get("username") or user_dict.get("sub") or "viewer"
+    
+    authz_engine.authorize(username, "gitops", "sync_application", application=app_name)
     try:
         data = argocd_service.sync_application(app_name)
+        audit_service.log_action(
+            username=username,
+            role_name=user_dict.get("role", "Viewer"),
+            action="sync_application",
+            target_resource=f"argocd/{app_name}",
+            application=app_name,
+            client_ip=request.client.host if request.client else "127.0.0.1"
+        )
         return BaseResponse(success=True, data=data, request_id=request_id)
     except DevOpsNexusException as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
-@router.post("/argocd/applications/{app_name}/refresh", response_model=BaseResponse, dependencies=[Depends(check_role(["Administrator", "DevOps Engineer"]))])
+@router.post("/argocd/applications/{app_name}/refresh", response_model=BaseResponse)
 async def refresh_argocd_application(
     request: Request,
     app_name: str = Path(..., description="Target application name.")
@@ -87,16 +102,29 @@ async def refresh_argocd_application(
     except DevOpsNexusException as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
-@router.post("/argocd/applications/{app_name}/rollback", response_model=BaseResponse, dependencies=[Depends(check_role(["Administrator", "DevOps Engineer"]))])
+@router.post("/argocd/applications/{app_name}/rollback", response_model=BaseResponse)
 async def rollback_argocd_application(
     request: Request,
     app_name: str = Path(..., description="Target application name."),
-    revision: int = Query(..., ge=0, description="Target history revision ID.")
+    revision: int = Query(..., ge=1, description="Target historical revision index.")
 ):
-    """Triggers rollback operation in ArgoCD to target revision ID."""
+    """Triggers application rollback to a specified deployment revision."""
     request_id = getattr(request.state, "request_id", None)
+    user_dict = get_current_user(request)
+    username = user_dict.get("username", "viewer")
+
+    authz_engine.authorize(username, "gitops", "rollback_application", application=app_name)
     try:
         data = argocd_service.rollback_application(app_name, revision)
+        audit_service.log_action(
+            username=username,
+            role_name=user_dict.get("role", "Viewer"),
+            action="rollback_application",
+            target_resource=f"argocd/{app_name}",
+            application=app_name,
+            new_value=f"revision={revision}",
+            client_ip=request.client.host if request.client else "127.0.0.1"
+        )
         return BaseResponse(success=True, data=data, request_id=request_id)
     except DevOpsNexusException as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))

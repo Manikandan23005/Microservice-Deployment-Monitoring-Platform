@@ -367,5 +367,96 @@ export const api = {
       console.warn("Failed to fetch platform metrics:", e);
     }
     return null;
+  },
+
+  // --- Administration & IAM Methods ---
+  getUsers: async (search?: string): Promise<any[]> => {
+    try {
+      const url = search ? `/api/v1/admin/users?search=${encodeURIComponent(search)}` : '/api/v1/admin/users';
+      const response = await apiClient.get(url);
+      if (response.data && response.data.success) {
+        return response.data.data;
+      }
+    } catch (e) {
+      console.warn("Failed to fetch users:", e);
+    }
+    return [];
+  },
+
+  createUser: async (userData: any): Promise<any> => {
+    const response = await apiClient.post('/api/v1/admin/users', userData);
+    return response.data;
+  },
+
+  updateUser: async (username: string, userData: any): Promise<any> => {
+    const response = await apiClient.put(`/api/v1/admin/users/${username}`, userData);
+    return response.data;
+  },
+
+  deleteUser: async (username: string): Promise<boolean> => {
+    try {
+      const response = await apiClient.delete(`/api/v1/admin/users/${username}`);
+      return !!(response.data && response.data.success);
+    } catch (e) {
+      return false;
+    }
+  },
+
+  resetPassword: async (username: string, newPassword: string): Promise<boolean> => {
+    try {
+      const response = await apiClient.post(`/api/v1/admin/users/${username}/reset-password`, { new_password: newPassword });
+      return !!(response.data && response.data.success);
+    } catch (e) {
+      return false;
+    }
+  },
+
+  getRoles: async (): Promise<any[]> => {
+    try {
+      const response = await apiClient.get('/api/v1/admin/roles');
+      if (response.data && response.data.success) {
+        return response.data.data;
+      }
+    } catch (e) {
+      console.warn("Failed to fetch roles:", e);
+    }
+    return [];
+  },
+
+  createRole: async (roleData: any): Promise<any> => {
+    const response = await apiClient.post('/api/v1/admin/roles', roleData);
+    return response.data;
+  },
+
+  updateRole: async (name: string, roleData: any): Promise<any> => {
+    const response = await apiClient.put(`/api/v1/admin/roles/${name}`, roleData);
+    return response.data;
+  },
+
+  deleteRole: async (name: string): Promise<boolean> => {
+    try {
+      const response = await apiClient.delete(`/api/v1/admin/roles/${name}`);
+      return !!(response.data && response.data.success);
+    } catch (e) {
+      return false;
+    }
+  },
+
+  cloneRole: async (name: string, newRoleName: string): Promise<any> => {
+    const response = await apiClient.post(`/api/v1/admin/roles/${name}/clone`, { new_role_name: newRoleName });
+    return response.data;
+  },
+
+  getAuditLogs: async (search?: string): Promise<any[]> => {
+    try {
+      const url = search ? `/api/v1/admin/audit-logs?search=${encodeURIComponent(search)}` : '/api/v1/admin/audit-logs';
+      const response = await apiClient.get(url);
+      if (response.data && response.data.success) {
+        return response.data.data;
+      }
+    } catch (e) {
+      console.warn("Failed to fetch audit logs:", e);
+    }
+    return [];
   }
 };

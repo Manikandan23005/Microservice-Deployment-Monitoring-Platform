@@ -18,20 +18,37 @@ router = APIRouter(
 )
 
 from app.services.scope_engine import scope_engine
+from app.services.authz_engine import authz_engine
+from app.services.audit_service import audit_service
 
 @router.post("/chat", response_model=BaseResponse)
 async def chat_troubleshoot(request: Request, body: AIChatRequest):
     """Answers DevOps incident queries using a conversational AI interface."""
     request_id = getattr(request.state, "request_id", None)
+    user_dict = get_current_user(request)
+    username = user_dict.get("username") or user_dict.get("sub") or "viewer"
+
+    scope = scope_engine.resolve_scope(body.scope_mode, body.scope_namespace, body.scope_app, body.scope_domain)
+    authz_engine.authorize(username, "ai", "ai_chat", namespace=scope.namespace, application=scope.application)
     try:
-        scope = scope_engine.resolve_scope(body.scope_mode, body.scope_namespace, body.scope_app, body.scope_domain)
         response_data = ai_service.chat_troubleshoot(body.prompt, provider=body.provider, session_id=body.session_id, scope=scope)
+        audit_service.log_action(
+            username=username,
+            role_name=user_dict.get("role", "Viewer"),
+            action="ai_chat",
+            target_resource=f"ai/prompt",
+            workspace=scope.mode.value,
+            namespace=scope.namespace,
+            application=scope.application,
+            ai_assisted=True
+        )
         return BaseResponse(success=True, data=response_data, request_id=request_id)
     except DevOpsNexusException as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 @router.get("/chat/stream")
 async def chat_troubleshoot_stream(
+    request: Request,
     prompt: str = Query(..., description="The user query or context to analyze."),
     provider: Optional[str] = Query(None, description="AI completions client provider."),
     session_id: Optional[str] = Query(None, description="Conversational session tracking identifier."),
@@ -41,7 +58,22 @@ async def chat_troubleshoot_stream(
     domain: Optional[str] = Query(None)
 ):
     """Streams AIOps agent execution phases and final diagnostics payload using Server-Sent Events (SSE)."""
+    user_dict = get_current_user(request)
+    username = user_dict.get("username", "viewer")
+
     scope = scope_engine.resolve_scope(scope_mode, namespace, app, domain)
+    authz_engine.authorize(username, "ai", "ai_chat", namespace=scope.namespace, application=scope.application)
+    
+    audit_service.log_action(
+        username=username,
+        role_name=user_dict.get("role", "Viewer"),
+        action="ai_chat",
+        target_resource=f"ai/prompt",
+        workspace=scope.mode.value,
+        namespace=scope.namespace,
+        application=scope.application,
+        ai_assisted=True
+    )
     
     async def event_generator():
         try:

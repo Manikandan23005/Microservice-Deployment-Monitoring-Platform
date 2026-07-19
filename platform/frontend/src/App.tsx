@@ -15,6 +15,12 @@ import NotFound from './pages/NotFound';
 import ProtectedRoute from './components/ProtectedRoute';
 import { ScopeProvider } from './context/ScopeContext';
 
+// Admin EWRAM Pages
+import { UsersPage } from './pages/admin/Users';
+import { RolesPage } from './pages/admin/Roles';
+import { PermissionsMatrixPage } from './pages/admin/PermissionsMatrix';
+import { AuditLogsPage } from './pages/admin/AuditLogs';
+
 function App() {
   return (
     <BrowserRouter>
@@ -44,6 +50,40 @@ function App() {
           <Route path="alerts" element={<Alerts />} />
           <Route path="ai" element={<AI />} />
           
+          {/* Admin Protected EWRAM Pages */}
+          <Route 
+            path="admin/users" 
+            element={
+              <ProtectedRoute allowedRoles={['Administrator', 'Platform Engineer']}>
+                <UsersPage />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="admin/roles" 
+            element={
+              <ProtectedRoute allowedRoles={['Administrator', 'Platform Engineer']}>
+                <RolesPage />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="admin/permissions" 
+            element={
+              <ProtectedRoute allowedRoles={['Administrator', 'Platform Engineer']}>
+                <PermissionsMatrixPage />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="admin/audit" 
+            element={
+              <ProtectedRoute allowedRoles={['Administrator', 'Platform Engineer']}>
+                <AuditLogsPage />
+              </ProtectedRoute>
+            } 
+          />
+
           {/* Settings restricted to Administrator only */}
           <Route 
             path="settings" 
