@@ -13,6 +13,8 @@ def get_current_user(request: Request) -> Dict[str, Any]:
     
     if auth_header and auth_header.startswith("Bearer "):
         token = auth_header.split(" ")[1]
+    elif request.query_params.get("token"):
+        token = request.query_params.get("token")
     else:
         token = request.cookies.get("session_token")
         

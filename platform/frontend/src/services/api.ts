@@ -228,7 +228,8 @@ export const api = {
     onError: (err: any) => void
   ) => {
     const baseUrl = apiClient.defaults.baseURL || '';
-    const url = `${baseUrl}/api/v1/ai/chat/stream?prompt=${encodeURIComponent(prompt)}&provider=${provider}&session_id=${sessionId}`;
+    const token = localStorage.getItem('session_token') || '';
+    const url = `${baseUrl}/api/v1/ai/chat/stream?prompt=${encodeURIComponent(prompt)}&provider=${provider}&session_id=${sessionId}&token=${encodeURIComponent(token)}`;
     const eventSource = new EventSource(url);
 
     eventSource.addEventListener('progress', (e: any) => {
