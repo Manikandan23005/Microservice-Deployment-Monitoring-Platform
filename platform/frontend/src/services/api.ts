@@ -22,6 +22,22 @@ apiClient.interceptors.request.use((config) => {
   return Promise.reject(error);
 });
 
+// Response interceptor to clear expired tokens and redirect to /login on 401 Unauthorized
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      localStorage.removeItem('session_token');
+      localStorage.removeItem('user_role');
+      localStorage.removeItem('username');
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 export const api = {
   getNamespaces: async (): Promise<any[]> => {
     try {

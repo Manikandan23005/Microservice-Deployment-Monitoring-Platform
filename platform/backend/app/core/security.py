@@ -11,7 +11,7 @@ from shared.exceptions import DevOpsNexusException
 # Secure key configuration
 SECRET_KEY = getattr(settings, "JWT_SECRET_KEY", "devops-nexus-super-secure-jwt-key-2026-production")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7
 
 class SecurityException(DevOpsNexusException):
     """Raised when token validation fails."""
