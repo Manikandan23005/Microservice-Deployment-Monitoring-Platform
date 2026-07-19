@@ -33,7 +33,15 @@ class PlatformCache:
                 return self.client.get(key)
             except Exception:
                 pass
-        return self._local_cache.get(key)
+        
+        import time
+        if key in self._local_cache:
+            entry = self._local_cache[key]
+            if time.time() > entry["expires_at"]:
+                del self._local_cache[key]
+                return None
+            return entry["value"]
+        return None
 
     def set(self, key: str, value: str, ex_seconds: int = 300) -> bool:
         if self.client:
@@ -42,7 +50,12 @@ class PlatformCache:
                 return True
             except Exception:
                 pass
-        self._local_cache[key] = value
+        
+        import time
+        self._local_cache[key] = {
+            "value": value,
+            "expires_at": time.time() + ex_seconds
+        }
         return True
 
     def ping(self) -> bool:

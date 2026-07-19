@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { api } from '../services/api';
 import { AIResponse } from '../types';
-import { Bot, Send, Sparkles, CheckSquare, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { Bot, Send, Sparkles, CheckSquare, AlertTriangle, ShieldCheck, Play } from 'lucide-react';
 
 interface ChatMessage {
   sender: 'user' | 'ai';
@@ -19,25 +19,95 @@ const AI: React.FC = () => {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [provider, setProvider] = useState('groq');
+  const [progressStatus, setProgressStatus] = useState<string>('');
+  
+  // Persistent session tracking
+  const [sessionId] = useState(() => Math.random().toString(36).substring(7));
+  
+  // Action status dictionary tracker
+  const [actionStates, setActionStates] = useState<Record<string, 'idle' | 'running' | 'success' | 'failed'>>({});
 
-  const handleSend = async (text: string) => {
+  const handleSend = (text: string) => {
     if (!text.trim() || loading) return;
 
     setMessages(prev => [...prev, { sender: 'user', text }]);
     setInput('');
     setLoading(true);
+    setProgressStatus('Thinking');
 
-    try {
-      const response = await api.askAI(text, provider);
-      setMessages(prev => [...prev, { sender: 'ai', structured: response }]);
-    } catch (e: any) {
-      setMessages(prev => [...prev, { 
-        sender: 'ai', 
-        text: `### Connection Failed\n\nFailed to get completions response: ${e.message || 'Unknown network error'}` 
-      }]);
-    } finally {
-      setLoading(false);
+    api.askAIStream(
+      text,
+      provider,
+      sessionId,
+      (status) => {
+        setProgressStatus(status);
+      },
+      (data) => {
+        setMessages(prev => [...prev, { sender: 'ai', structured: data }]);
+        setLoading(false);
+        setProgressStatus('');
+      },
+      (err) => {
+        setMessages(prev => [...prev, { 
+          sender: 'ai', 
+          text: `### Connection Failed\n\nFailed to get completions response: ${err.message || 'Unknown network error'}` 
+        }]);
+        setLoading(false);
+        setProgressStatus('');
+      }
+    );
+  };
+
+  const handleTriggerAction = async (key: string, type: 'restart' | 'scale', ns: string, svc: string, replicas?: number) => {
+    setActionStates(prev => ({ ...prev, [key]: 'running' }));
+    let success = false;
+    if (type === 'restart') {
+      success = await api.restartDeployment(ns, svc);
+    } else if (type === 'scale' && replicas !== undefined) {
+      success = await api.scaleDeployment(ns, svc, replicas);
     }
+    setActionStates(prev => ({ ...prev, [key]: success ? 'success' : 'failed' }));
+    
+    // Reset back to idle status after 3 seconds
+    setTimeout(() => {
+      setActionStates(prev => ({ ...prev, [key]: 'idle' }));
+    }, 3000);
+  };
+
+  const parseActionableSuggestion = (rec: string) => {
+    const lower = rec.toLowerCase();
+    const services = ["auth", "users", "products", "orders", "payment", "notification", "gateway", "frontend"];
+    let matchedSvc = "";
+    for (const s of services) {
+      if (lower.includes(s)) {
+        matchedSvc = s;
+        break;
+      }
+    }
+
+    if (matchedSvc) {
+      const svcName = `${matchedSvc}-service`;
+      if (lower.includes("restart") || lower.includes("rollout")) {
+        return {
+          type: 'restart' as const,
+          label: `Rollout Restart ${matchedSvc}-service`,
+          svc: svcName,
+          ns: "devops-nexus-prod"
+        };
+      }
+      if (lower.includes("scale")) {
+        const match = lower.match(/scale.*?to\s+(\d+)/);
+        const replicas = match ? parseInt(match[1], 10) : 2;
+        return {
+          type: 'scale' as const,
+          label: `Scale ${matchedSvc}-service to ${replicas}`,
+          svc: svcName,
+          ns: "devops-nexus-prod",
+          replicas
+        };
+      }
+    }
+    return null;
   };
 
   const presets = [
@@ -62,7 +132,7 @@ const AI: React.FC = () => {
         <select 
           value={provider}
           onChange={(e) => setProvider(e.target.value)}
-          className="px-4 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:outline-none focus:border-blue-500 text-sm font-semibold cursor-pointer"
+          className="px-4 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:outline-none focus:border-blue-500 text-sm font-semibold cursor-pointer text-slate-800 dark:text-white"
         >
           <option value="groq">Groq (Llama-3)</option>
           <option value="openai">OpenAI (GPT-4)</option>
@@ -131,13 +201,30 @@ const AI: React.FC = () => {
                     {msg.structured.summary}
                   </div>
 
-                  {/* Analysis */}
-                  <div className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
-                    {msg.structured.analysis}
+                  {/* Root Cause Analysis */}
+                  <div className="space-y-1">
+                    <h4 className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Root Cause Analysis</h4>
+                    <div className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
+                      {msg.structured.root_cause}
+                    </div>
                   </div>
 
+                  {/* Affected Resources */}
+                  {msg.structured.affected_resources && msg.structured.affected_resources.length > 0 && (
+                    <div className="space-y-2 border-t border-slate-200 dark:border-slate-800 pt-3">
+                      <h4 className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Affected Resources</h4>
+                      <div className="flex flex-wrap gap-1.5">
+                        {msg.structured.affected_resources.map((res, i) => (
+                          <span key={i} className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[11px] font-mono text-slate-500 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                            {res}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Evidence list */}
-                  {msg.structured.evidence.length > 0 && (
+                  {msg.structured.evidence && msg.structured.evidence.length > 0 && (
                     <div className="space-y-2 border-t border-slate-200 dark:border-slate-800 pt-3">
                       <h4 className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Observed Evidence</h4>
                       <ul className="list-disc pl-4 space-y-1 text-xs text-slate-500 dark:text-slate-400">
@@ -148,24 +235,49 @@ const AI: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Recommendations checklist */}
-                  {msg.structured.recommendation.length > 0 && (
-                    <div className="space-y-2.5 border-t border-slate-200 dark:border-slate-800 pt-3">
+                  {/* Recommendations and Suggested Actions */}
+                  {msg.structured.recommendations && msg.structured.recommendations.length > 0 && (
+                    <div className="space-y-3 border-t border-slate-200 dark:border-slate-800 pt-3">
                       <h4 className="text-[10px] uppercase font-bold tracking-wider text-slate-400 flex items-center gap-1.5">
                         <CheckSquare className="h-3.5 w-3.5 text-blue-500" />
-                        Remediation Checklist
+                        Remediation Actions
                       </h4>
-                      <div className="space-y-2">
-                        {msg.structured.recommendation.map((rec, i) => (
-                          <div key={i} className="flex items-start gap-2.5 text-xs text-slate-600 dark:text-slate-300">
-                            <input 
-                              type="checkbox" 
-                              className="mt-0.5 rounded border-slate-300 dark:border-slate-700 dark:bg-slate-900 text-blue-600 focus:ring-blue-500 cursor-pointer" 
-                              defaultChecked={false} 
-                            />
-                            <span>{rec}</span>
-                          </div>
-                        ))}
+                      <div className="space-y-3">
+                        {msg.structured.recommendations.map((rec, i) => {
+                          const action = parseActionableSuggestion(rec);
+                          const actionKey = `${idx}-${i}`;
+                          const state = actionStates[actionKey] || 'idle';
+                          
+                          return (
+                            <div key={i} className="flex flex-col gap-2 p-2.5 rounded-lg bg-slate-500/5 dark:bg-slate-900/50 border border-slate-200/50 dark:border-slate-800">
+                              <div className="text-xs text-slate-600 dark:text-slate-300 flex items-start gap-2">
+                                <span className="text-slate-400">•</span>
+                                <span>{rec}</span>
+                              </div>
+                              
+                              {action && (
+                                <div className="mt-1 flex items-center gap-2">
+                                  <button
+                                    onClick={() => handleTriggerAction(actionKey, action.type, action.ns, action.svc, action.replicas)}
+                                    disabled={state === 'running'}
+                                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all ${
+                                      state === 'running' ? 'bg-slate-300 dark:bg-slate-800 text-slate-500 cursor-not-allowed' :
+                                      state === 'success' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
+                                      state === 'failed' ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20' :
+                                      'bg-blue-600 hover:bg-blue-500 text-white cursor-pointer'
+                                    }`}
+                                  >
+                                    <Play className="h-3 w-3" />
+                                    {state === 'running' ? 'Running...' :
+                                     state === 'success' ? 'Triggered Success' :
+                                     state === 'failed' ? 'Triggered Failed' :
+                                     action.label}
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -189,7 +301,7 @@ const AI: React.FC = () => {
               <span className="h-1.5 w-1.5 bg-slate-400 rounded-full animate-bounce" />
               <span className="h-1.5 w-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:0.2s]" />
               <span className="h-1.5 w-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:0.4s]" />
-              Querying {provider} engine...
+              <span>{progressStatus || 'Querying'} ({provider} engine)...</span>
             </div>
           </div>
         )}
@@ -205,11 +317,11 @@ const AI: React.FC = () => {
           placeholder={`Type a command for the ${provider} engine...`}
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          className="flex-1 px-4 py-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:outline-none focus:border-blue-500 text-sm"
+          className="flex-1 px-4 py-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:outline-none focus:border-blue-500 text-sm text-slate-800 dark:text-white"
         />
         <button
           type="submit"
-          className="px-5 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center shadow-lg shadow-blue-500/20 transition-all"
+          className="px-5 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center shadow-lg shadow-blue-500/20 transition-all cursor-pointer"
         >
           <Send className="h-4 w-4" />
         </button>

@@ -2,7 +2,7 @@
 from unittest.mock import patch, MagicMock
 
 def test_ai_chat_completions(client):
-    mock_json = '{"summary": "Test Summary", "analysis": "Test Analysis", "evidence": ["Test Evidence"], "recommendation": ["Test Action"], "severity": "Info", "confidence": 95}'
+    mock_json = '{"summary": "Test Summary", "root_cause": "Test Analysis", "evidence": ["Test Evidence"], "recommendations": ["Test Action"], "affected_resources": ["auth-service"], "severity": "Info", "confidence": 95}'
     with patch("app.clients.llm.llm_client.generate_chat_response", return_value=mock_json):
         response = client.post(
             "/api/v1/ai/chat",
@@ -12,11 +12,11 @@ def test_ai_chat_completions(client):
         data = response.json()
         assert data["success"] is True
         assert data["data"]["summary"] == "Test Summary"
-        assert data["data"]["analysis"] == "Test Analysis"
+        assert data["data"]["root_cause"] == "Test Analysis"
         assert data["data"]["severity"] == "Info"
 
 def test_ai_incident_analysis(client):
-    mock_json = '{"summary": "Pod Incident Summary", "analysis": "Detailed Crash Analysis", "evidence": ["OOMKilled"], "recommendation": ["Increase memory limits"], "severity": "Critical", "confidence": 100}'
+    mock_json = '{"summary": "Pod Incident Summary", "root_cause": "Detailed Crash Analysis", "evidence": ["OOMKilled"], "recommendations": ["Increase memory limits"], "affected_resources": ["payment-pod"], "severity": "Critical", "confidence": 100}'
     with patch("app.clients.llm.llm_client.generate_chat_response", return_value=mock_json):
         response = client.post(
             "/api/v1/ai/analyze-incident",
@@ -33,7 +33,7 @@ def test_ai_incident_analysis(client):
         data = response.json()
         assert data["success"] is True
         assert data["data"]["summary"] == "Pod Incident Summary"
-        assert data["data"]["analysis"] == "Detailed Crash Analysis"
+        assert data["data"]["root_cause"] == "Detailed Crash Analysis"
         assert data["data"]["severity"] == "Critical"
 
 def test_context_builder():

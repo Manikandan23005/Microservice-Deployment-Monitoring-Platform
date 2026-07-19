@@ -6,6 +6,7 @@ class AIChatRequest(BaseModel):
     """Payload to prompt a chat response."""
     prompt: str = Field(..., description="The user query or context to analyze.")
     provider: Optional[str] = Field(None, description="Select client AI provider: openai, groq, ollama, lmstudio.")
+    session_id: Optional[str] = Field(None, description="Optional conversational session tracking identifier.")
 
 class AIIncidentRequest(BaseModel):
     """Payload to trigger detailed incident diagnostics."""
@@ -18,8 +19,9 @@ class AIIncidentRequest(BaseModel):
 
 class AIStructuredResponse(BaseModel):
     summary: str = Field(..., description="High-level summary of the operational status.")
-    analysis: str = Field(..., description="Deep-dive root cause analysis grounded in live telemetry.")
+    root_cause: str = Field(..., description="Deep-dive root cause analysis grounded in live telemetry.")
     evidence: List[str] = Field(default_factory=list, description="Concrete metrics, logs, or events logs serving as evidence.")
-    recommendation: List[str] = Field(default_factory=list, description="Actionable remediation steps to fix the issue.")
+    affected_resources: List[str] = Field(default_factory=list, description="List of Kubernetes resources affected by the incident.")
+    recommendations: List[str] = Field(default_factory=list, description="Actionable remediation steps to fix the issue.")
     severity: str = Field(..., description="Target severity indicator: Info, Warning, Critical.")
     confidence: int = Field(..., description="Analysis confidence percentage score between 0 and 100.")

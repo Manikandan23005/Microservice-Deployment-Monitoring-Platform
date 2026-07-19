@@ -178,26 +178,101 @@ export const api = {
     try {
       const response = await apiClient.post('/api/v1/ai/chat', { prompt, provider });
       if (response.data && response.data.success) {
-        return response.data.data;
+        const data = response.data.data;
+        return {
+          ...data,
+          analysis: data.root_cause || data.analysis,
+          recommendation: data.recommendations || data.recommendation
+        };
       }
     } catch (e: any) {
       const errMsg = e.response?.data?.detail || e.message || "Unknown error";
       return {
         summary: "AI Diagnostics Connection Offline",
-        analysis: `Failed to communicate with the AIOps diagnostics engine API: ${errMsg}`,
+        root_cause: `Failed to communicate with the AIOps diagnostics engine API: ${errMsg}`,
         evidence: ["API connection failed or timed out"],
-        recommendation: ["Please ensure your .env configurations are active and API keys are set."],
+        affected_resources: [],
+        recommendations: ["Please ensure your .env configurations are active and API keys are set."],
         severity: "Critical",
         confidence: 0
       };
     }
     return {
       summary: "AI Diagnostics Failed",
-      analysis: "Did not receive a valid structured response from the backend service.",
+      root_cause: "Did not receive a valid structured response from the backend service.",
       evidence: ["Empty response payload"],
-      recommendation: ["Please retry the query or review backend orchestrator logs."],
+      affected_resources: [],
+      recommendations: ["Please retry the query or review backend orchestrator logs."],
       severity: "Warning",
       confidence: 0
     };
+  },
+
+  askAIStream: (
+    prompt: string,
+    provider: string,
+    sessionId: string,
+    onProgress: (status: string) => void,
+    onDone: (data: AIResponse) => void,
+    onError: (err: any) => void
+  ) => {
+    const baseUrl = apiClient.defaults.baseURL || '';
+    const url = `${baseUrl}/api/v1/ai/chat/stream?prompt=${encodeURIComponent(prompt)}&provider=${provider}&session_id=${sessionId}`;
+    const eventSource = new EventSource(url);
+
+    eventSource.addEventListener('progress', (e: any) => {
+      try {
+        const payload = JSON.parse(e.data);
+        onProgress(payload.status);
+      } catch (err) {
+        console.error('Failed to parse progress event:', err);
+      }
+    });
+
+    eventSource.addEventListener('done', (e: any) => {
+      try {
+        const payload = JSON.parse(e.data);
+        // Map keys to match TS expectations if they differ
+        const finalResponse: AIResponse = {
+          ...payload,
+          analysis: payload.root_cause || payload.analysis || '',
+          recommendation: payload.recommendations || payload.recommendation || []
+        };
+        onDone(finalResponse);
+        eventSource.close();
+      } catch (err) {
+        onError(err);
+        eventSource.close();
+      }
+    });
+
+    eventSource.onerror = (err) => {
+      onError(err);
+      eventSource.close();
+    };
+
+    return () => {
+      eventSource.close();
+    };
+  },
+
+  restartDeployment: async (namespace: string, name: string): Promise<boolean> => {
+    try {
+      const response = await apiClient.post(`/api/v1/k8s/deployments/${namespace}/${name}/restart`);
+      return !!(response.data && response.data.success);
+    } catch (e) {
+      console.error(`Failed to restart deployment ${name}:`, e);
+      return false;
+    }
+  },
+
+  scaleDeployment: async (namespace: string, name: string, replicas: number): Promise<boolean> => {
+    try {
+      const response = await apiClient.post(`/api/v1/k8s/deployments/${namespace}/${name}/scale`, { replicas });
+      return !!(response.data && response.data.success);
+    } catch (e) {
+      console.error(`Failed to scale deployment ${name} to ${replicas}:`, e);
+      return false;
+    }
   }
 };

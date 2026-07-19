@@ -42,9 +42,12 @@ export interface LogLine {
 
 export interface AIResponse {
   summary: string;
-  analysis: string;
+  root_cause: string;
   evidence: string[];
-  recommendation: string[];
+  affected_resources: string[];
+  recommendations: string[];
   severity: string;
   confidence: number;
+  analysis?: string;
+  recommendation?: string[];
 }

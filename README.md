@@ -193,3 +193,52 @@ DevOps-Nexus/
 ├── Dockerfile             # Multi-stage platform backend Dockerfile
 └── docker-compose.yml     # Project orchestration stack
 ```
+---
+
+## 🤖 AI Operations (AIOps) Engine Specifications
+
+DevOps Nexus features a production-grade, runtime-aware AI Operations Engine that correlates live cluster configuration, Kubernetes status, Prometheus metrics, Loki log streams, and ArgoCD GitOps sync states.
+
+### 1. AI Architecture
+The engine consists of:
+- **Intelligent Request Router:** Classifies prompts into 24 distinct operational categories and determines target services to query.
+- **Smart Context Builder:** Selectively queries Kubernetes resources, metrics, logs, and GitOps application data based on active query categories. It uses a thread-safe, TTL-based caching layer (5s default) to shield cluster APIs from storming.
+- **Conversational Memory Manager:** Maintains thread-safe, in-memory chat session history and automatically resolves reference pronouns/entities across conversational turns (e.g. resolving "its logs" to the service analyzed in the previous turn).
+- **Incident Analysis Pipeline:** Scans telemetry data using rule-based diagnostics to identify `CrashLoopBackOff`, `OOMKilled`, `ImagePullBackOff`, pending pods, mismatched desired/ready replica counts, high utilization, and GitOps drifts, forwarding these as structured focus alerts to the LLM.
+
+### 2. Runtime Context Flow & Correlation
+The engine correlates structured cluster data dynamically:
+```
+  User Query ──► Request Router ──► Context Builder (Cached APIs)
+                                           │
+                                           ├─► Pods status (K8s API)
+                                           ├─► CPU/Memory gauges (Prometheus)
+                                           ├─► Sync health (ArgoCD)
+                                           └─► Container stdout logs (Loki)
+                                           │
+  AI Response ◄── LLM Completion ◄── Prompt Pipeline (Session Memory)
+```
+
+### 3. Response Schema
+All backend chat API endpoints return structured JSON conforming to the following schema:
+```json
+{
+  "summary": "Short 1-sentence summary of the current operational status.",
+  "root_cause": "Detailed explanation of the resource or query grounded solely in the context.",
+  "evidence": ["Specific metric values, status phases, or logs from the context"],
+  "affected_resources": ["List of Kubernetes resources affected"],
+  "recommendations": ["Actionable remediation steps to fix the issue"],
+  "severity": "Info | Warning | Critical",
+  "confidence": 100
+}
+```
+
+### 4. Supported AI Queries
+- *"Why is payment-service restarting?"* (Trigger Event log analysis and restarts audits).
+- *"Which pods have high CPU?"* (Queries Prometheus cluster metrics).
+- *"Show recent payment logs"* (Streams Loki container logs).
+- *"Show GitOps status"* (Fetches ArgoCD application status & revisions).
+
+### 5. Known Limitations
+- LLM completion speed is bounded by the upstream completions API provider latency.
+- Direct SSH/exec actions (e.g., shell commands triggers) are not automatically executed; suggestions must be explicitly confirmed by the operator using the UI dashboard card Suggested Actions.
