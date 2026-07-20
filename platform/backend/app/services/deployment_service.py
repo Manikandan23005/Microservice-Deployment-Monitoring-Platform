@@ -49,6 +49,8 @@ class DeploymentService:
                     dep_name == app_name or
                     dep_name == f"{clean_app_prefix}-service" or
                     clean_app_prefix == clean_dep_prefix or
+                    clean_app_prefix in clean_dep_prefix or
+                    clean_dep_prefix in clean_app_prefix or
                     labels.get("app.kubernetes.io/instance") == app_name or
                     annotations.get("argocd.argoproj.io/tracking-id", "").startswith(app_name)
                 ):
