@@ -3,7 +3,7 @@ import { Outlet, Link, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, GitBranch, Cpu, Layers, BarChart3, 
   Terminal, AlertTriangle, Bot, Settings, Sun, Moon, Menu, X, TerminalSquare, Server,
-  Users, Shield, Grid, ShieldAlert
+  Users, Shield, Grid, ShieldAlert, Search, Command
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useScope, ScopeMode, InfrastructureDomain } from '../context/ScopeContext';
@@ -11,10 +11,12 @@ import { useScope, ScopeMode, InfrastructureDomain } from '../context/ScopeConte
 import { ClusterSelector } from '../components/ClusterSelector';
 import { AICopilotDrawer } from '../components/AICopilotDrawer';
 import { ResourceContextMenu } from '../components/ResourceContextMenu';
+import { CommandPalette } from '../components/CommandPalette';
 
 const DashboardLayout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [darkMode, setDarkMode] = useState(true);
+  const [cmdPaletteOpen, setCmdPaletteOpen] = useState(false);
   const location = useLocation();
 
   const {
@@ -35,6 +37,18 @@ const DashboardLayout: React.FC = () => {
       document.documentElement.classList.remove('dark');
     }
   }, [darkMode]);
+
+  // Global Ctrl + K / Cmd + K listener
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setCmdPaletteOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const userRole = localStorage.getItem('user_role') || 'Viewer';
 
@@ -115,7 +129,6 @@ const DashboardLayout: React.FC = () => {
                   <span className="font-bold text-base tracking-wide bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent">
                     DevOps Nexus
                   </span>
-                  <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">AIOps Workspace</span>
                 </div>
               )}
             </div>
@@ -158,12 +171,26 @@ const DashboardLayout: React.FC = () => {
       {/* --- Page Main Viewport --- */}
       <div className={`flex-1 flex flex-col transition-all duration-300 ${sidebarOpen ? 'pl-64' : 'pl-20'}`}>
         
-        {/* Top Navbar with Operations Scope Controls */}
+        {/* Top Navbar with Operations Scope Controls & Spotlight Search */}
         <header className="h-16 flex items-center justify-between px-6 bg-white/60 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800 backdrop-blur-md sticky top-0 z-30 min-w-0">
           
-          {/* Left: Clean Breadcrumbs */}
-          <div className="flex items-center gap-3 text-sm flex-shrink-0">
-            <span className="text-slate-400 font-medium tracking-wide">Platform / {breadcrumb}</span>
+          {/* Left: Clean Breadcrumbs & Command Palette Trigger */}
+          <div className="flex items-center gap-4 text-sm flex-shrink-0">
+            <span className="text-slate-400 font-medium tracking-wide flex items-center gap-1.5">
+              <span>Platform</span> / <strong className="text-slate-800 dark:text-white font-bold">{breadcrumb}</strong>
+            </span>
+
+            {/* Spotlight Command Palette Trigger */}
+            <button
+              onClick={() => setCmdPaletteOpen(true)}
+              className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 text-xs text-slate-400 hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800 transition-all font-mono"
+            >
+              <Search className="h-3.5 w-3.5 text-indigo-400" />
+              <span>Search or type command...</span>
+              <kbd className="px-1.5 py-0.5 text-[10px] bg-slate-200 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded text-slate-400 flex items-center gap-0.5">
+                <Command className="h-2.5 w-2.5" /> K
+              </kbd>
+            </button>
           </div>
 
           {/* Right: Operations Controls & User Profile */}
@@ -277,6 +304,9 @@ const DashboardLayout: React.FC = () => {
 
         {/* Global Floating AI Copilot Drawer */}
         <AICopilotDrawer />
+
+        {/* Spotlight Command Palette Modal */}
+        <CommandPalette isOpen={cmdPaletteOpen} onClose={() => setCmdPaletteOpen(false)} />
       </div>
     </div>
   );
