@@ -95,6 +95,7 @@ app.add_middleware(
 )
 
 from app.routers.admin import router as admin_router
+from app.routers.clusters import router as clusters_router
 
 # 4. Mount Endpoint Routers
 app.include_router(root_router, tags=["Root"])
@@ -106,3 +107,4 @@ app.include_router(monitoring_router, tags=["Observability"])
 app.include_router(gitops_router, tags=["GitOps"])
 app.include_router(ai_router, tags=["AI Assistant"])
 app.include_router(admin_router, tags=["Administration"])
+app.include_router(clusters_router, tags=["Cluster Management"])

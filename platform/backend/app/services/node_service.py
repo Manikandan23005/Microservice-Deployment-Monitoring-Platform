@@ -1,10 +1,9 @@
-# --- Node Monitoring Service ---
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from app.clients.kubernetes import k8s_client
 
 class NodeService:
-    def list_nodes(self) -> List[Dict[str, Any]]:
-        nodes = k8s_client.list_nodes()
+    def list_nodes(self, cluster_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        nodes = k8s_client.list_nodes(cluster_id=cluster_id)
         result = []
         for node in nodes:
             # Detect node role from labels

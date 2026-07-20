@@ -8,6 +8,8 @@ import {
 import { api } from '../services/api';
 import { useScope, ScopeMode, InfrastructureDomain } from '../context/ScopeContext';
 
+import { ClusterSelector } from '../components/ClusterSelector';
+
 const DashboardLayout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [darkMode, setDarkMode] = useState(true);
@@ -39,6 +41,7 @@ const DashboardLayout: React.FC = () => {
   if (userRole === 'Administrator' || userRole === 'Platform Engineer') {
     allNavItems = [
       { path: '/overview', label: 'Dashboard', icon: LayoutDashboard },
+      { path: '/clusters', label: 'Clusters', icon: Server },
       { path: '/ai', label: 'AI Operations', icon: Bot },
       { path: '/deployments', label: 'Deployments', icon: GitBranch },
       { path: '/pods', label: 'Pods', icon: Cpu },
@@ -56,6 +59,7 @@ const DashboardLayout: React.FC = () => {
   } else if (userRole === 'DevOps Engineer') {
     allNavItems = [
       { path: '/overview', label: 'Dashboard', icon: LayoutDashboard },
+      { path: '/clusters', label: 'Clusters', icon: Server },
       { path: '/ai', label: 'AI Operations', icon: Bot },
       { path: '/deployments', label: 'Deployments', icon: GitBranch },
       { path: '/pods', label: 'Pods', icon: Cpu },
@@ -169,6 +173,9 @@ const DashboardLayout: React.FC = () => {
 
           {/* Center-Right: Operations Scope Control Selectors */}
           <div className="flex items-center gap-3">
+            {/* Global Multi-Cluster Selector */}
+            <ClusterSelector />
+
             {/* Scope Mode Dropdown */}
             <select
               value={scopeMode}

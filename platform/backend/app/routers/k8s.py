@@ -18,6 +18,9 @@ router = APIRouter(
     dependencies=[Depends(get_current_user)]
 )
 
+def _get_cluster_id(request: Request) -> Optional[str]:
+    return request.headers.get("X-Cluster-ID") or request.query_params.get("cluster_id")
+
 @router.get("/namespaces", response_model=BaseResponse)
 async def list_namespaces(
     request: Request,
@@ -27,9 +30,10 @@ async def list_namespaces(
     domain: Optional[str] = Query(None)
 ):
     request_id = getattr(request.state, "request_id", None)
+    cluster_id = _get_cluster_id(request)
     try:
         scope = scope_engine.resolve_scope(scope_mode, namespace, app, domain)
-        raw_data = namespace_service.list_namespaces()
+        raw_data = namespace_service.list_namespaces(cluster_id=cluster_id)
         data = scope_engine.filter_namespaces(raw_data, scope)
         return BaseResponse(success=True, data=data, request_id=request_id)
     except KubernetesClientException as e:
@@ -80,8 +84,9 @@ async def delete_namespace(request: Request, name: str = Path(..., description="
 @router.get("/nodes", response_model=BaseResponse)
 async def list_nodes(request: Request):
     request_id = getattr(request.state, "request_id", None)
+    cluster_id = _get_cluster_id(request)
     try:
-        data = node_service.list_nodes()
+        data = node_service.list_nodes(cluster_id=cluster_id)
         return BaseResponse(success=True, data=data, request_id=request_id)
     except KubernetesClientException as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
@@ -95,12 +100,13 @@ async def list_pods(
     domain: Optional[str] = Query(None)
 ):
     request_id = getattr(request.state, "request_id", None)
+    cluster_id = _get_cluster_id(request)
     try:
         scope = scope_engine.resolve_scope(scope_mode, namespace, app, domain)
         effective_ns = scope.get_effective_namespaces()
         ns_param = effective_ns[0] if (len(effective_ns) == 1) else None
         
-        raw_pods = pod_service.list_pods(ns_param)
+        raw_pods = pod_service.list_pods(ns_param, cluster_id=cluster_id)
         data = scope_engine.filter_pods(raw_pods, scope)
         return BaseResponse(success=True, data=data, request_id=request_id)
     except KubernetesClientException as e:
@@ -142,13 +148,14 @@ async def list_deployments(
     domain: Optional[str] = Query(None)
 ):
     request_id = getattr(request.state, "request_id", None)
+    cluster_id = _get_cluster_id(request)
     try:
         scope = scope_engine.resolve_scope(scope_mode, namespace, app, domain)
         effective_ns = scope.get_effective_namespaces()
         ns_param = effective_ns[0] if (len(effective_ns) == 1) else None
 
-        raw_deployments = deployment_service.list_deployments(ns_param)
-        data = scope_engine.filter_deployments(raw_deployments, scope)
+        raw_deps = deployment_service.list_deployments(ns_param, cluster_id=cluster_id)
+        data = scope_engine.filter_deployments(raw_deps, scope)
         return BaseResponse(success=True, data=data, request_id=request_id)
     except KubernetesClientException as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))

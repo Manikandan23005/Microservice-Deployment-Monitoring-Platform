@@ -13,6 +13,8 @@ from app.utils.cache import ttl_cache
 from app.utils.session_manager import session_manager
 from app.core.logging import logger
 
+from app.services.cluster_registry import cluster_registry
+
 class ContextBuilder:
     """Collects live cluster configurations, events, metrics, logs, and GitOps sync states into a unified dictionary."""
 
@@ -176,7 +178,15 @@ class ContextBuilder:
         current_scope = scope or scope_engine.resolve_scope()
         categories = self.classify_query(prompt)
         
+        default_cluster = cluster_registry.get_default_cluster()
         context = {
+            "active_cluster": {
+                "id": default_cluster.get("id"),
+                "name": default_cluster.get("name"),
+                "provider": default_cluster.get("provider"),
+                "environment": default_cluster.get("environment"),
+                "context_name": default_cluster.get("context_name")
+            },
             "operations_scope": {
                 "mode": current_scope.mode.value,
                 "namespace": current_scope.namespace,

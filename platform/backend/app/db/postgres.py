@@ -48,6 +48,29 @@ class UserModel(Base):
     created_at = Column(String(64), nullable=False)
     last_login = Column(String(64), nullable=True)
 
+class ClusterModel(Base):
+    __tablename__ = "clusters"
+
+    id = Column(String(64), primary_key=True)
+    name = Column(String(128), nullable=False)
+    description = Column(String(256), nullable=True)
+    environment = Column(String(64), nullable=False, default="Development")
+    provider = Column(String(64), nullable=False, default="Minikube")
+    context_name = Column(String(128), nullable=False)
+    kubeconfig_content = Column(Text, nullable=True)
+    api_server = Column(String(256), nullable=True)
+    authentication_type = Column(String(64), default="Kubeconfig")
+    default_namespace = Column(String(128), default="devops-nexus-prod")
+    status = Column(String(64), default="CONNECTED")
+    is_default = Column(Boolean, default=False)
+    argocd_url = Column(String(256), nullable=True)
+    argocd_token = Column(String(512), nullable=True)
+    prometheus_url = Column(String(256), nullable=True)
+    loki_url = Column(String(256), nullable=True)
+    created_at = Column(String(64), nullable=False)
+    updated_at = Column(String(64), nullable=False)
+
+
 try:
     engine = create_engine(DATABASE_URL, pool_pre_ping=True, pool_size=10, max_overflow=20)
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

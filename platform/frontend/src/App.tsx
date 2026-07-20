@@ -15,6 +15,8 @@ import { ForcePasswordChange } from './pages/ForcePasswordChange';
 import NotFound from './pages/NotFound';
 import ProtectedRoute from './components/ProtectedRoute';
 import { ScopeProvider } from './context/ScopeContext';
+import { ClusterProvider } from './context/ClusterContext';
+import { Clusters } from './pages/Clusters';
 
 // Admin EWRAM Pages
 import { UsersPage } from './pages/admin/Users';
@@ -42,14 +44,17 @@ function App() {
           path="/" 
           element={
             <ProtectedRoute>
-              <ScopeProvider>
-                <DashboardLayout />
-              </ScopeProvider>
+              <ClusterProvider>
+                <ScopeProvider>
+                  <DashboardLayout />
+                </ScopeProvider>
+              </ClusterProvider>
             </ProtectedRoute>
           }
         >
           <Route index element={<Navigate to="/overview" replace />} />
           <Route path="overview" element={<Overview />} />
+          <Route path="clusters" element={<Clusters />} />
           <Route path="metrics" element={<Metrics />} />
           <Route path="ai" element={<AI />} />
           

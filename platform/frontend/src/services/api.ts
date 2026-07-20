@@ -17,6 +17,10 @@ apiClient.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  const clusterId = localStorage.getItem('nexus_active_cluster_id');
+  if (clusterId) {
+    config.headers['X-Cluster-ID'] = clusterId;
+  }
   return config;
 }, (error) => {
   return Promise.reject(error);
@@ -546,5 +550,30 @@ export const api = {
       console.warn("Failed to fetch audit logs:", e);
     }
     return [];
+  },
+
+  // --- Multi-Cluster Registry Endpoints ---
+  getClusters: async (): Promise<any> => {
+    return apiClient.get('/api/v1/clusters');
+  },
+
+  getClusterDetails: async (id: string): Promise<any> => {
+    return apiClient.get(`/api/v1/clusters/${id}`);
+  },
+
+  addCluster: async (data: any): Promise<any> => {
+    return apiClient.post('/api/v1/clusters', data);
+  },
+
+  parseKubeconfig: async (content: string): Promise<any> => {
+    return apiClient.post('/api/v1/clusters/parse-kubeconfig', { kubeconfig_content: content });
+  },
+
+  testClusterConnection: async (id: string): Promise<any> => {
+    return apiClient.post(`/api/v1/clusters/${id}/test`);
+  },
+
+  setDefaultCluster: async (id: string): Promise<any> => {
+    return apiClient.post(`/api/v1/clusters/${id}/set-default`);
   }
 };

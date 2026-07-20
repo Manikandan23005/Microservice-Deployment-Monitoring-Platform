@@ -4,10 +4,10 @@ from app.clients.kubernetes import k8s_client
 from app.core.logging import logger
 
 class DeploymentService:
-    def _resolve_k8s_name(self, namespace: str, name: str) -> str:
+    def _resolve_k8s_name(self, namespace: str, name: str, cluster_id: Optional[str] = None) -> str:
         """Resolves ArgoCD app alias names (e.g. auth-prod) to K8s deployment names (e.g. auth-service)."""
         try:
-            deployments = k8s_client.list_deployments(namespace)
+            deployments = k8s_client.list_deployments(namespace, cluster_id=cluster_id)
             dep_names = [d.metadata.name for d in deployments]
             if name in dep_names:
                 return name
@@ -21,13 +21,13 @@ class DeploymentService:
             pass
         return name
 
-    def list_deployments(self, namespace: Optional[str] = None) -> List[Dict[str, Any]]:
-        deployments = k8s_client.list_deployments(namespace)
+    def list_deployments(self, namespace: Optional[str] = None, cluster_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        deployments = k8s_client.list_deployments(namespace, cluster_id=cluster_id)
         
         # Fetch active ArgoCD applications to match ownership dynamically
         try:
             from app.services.argocd_service import argocd_service
-            argocd_apps = argocd_service.list_applications()
+            argocd_apps = argocd_service.list_applications(cluster_id=cluster_id)
         except Exception:
             argocd_apps = []
 

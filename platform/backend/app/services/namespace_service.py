@@ -1,10 +1,9 @@
-# --- Namespace Management Service ---
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from app.clients.kubernetes import k8s_client
 
 class NamespaceService:
-    def list_namespaces(self) -> List[Dict[str, Any]]:
-        namespaces = k8s_client.list_namespaces()
+    def list_namespaces(self, cluster_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        namespaces = k8s_client.list_namespaces(cluster_id=cluster_id)
         result = []
         for ns in namespaces:
             result.append({
@@ -14,12 +13,12 @@ class NamespaceService:
             })
         return result
 
-    def create_namespace(self, name: str) -> Dict[str, Any]:
-        k8s_client.create_namespace(name)
+    def create_namespace(self, name: str, cluster_id: Optional[str] = None) -> Dict[str, Any]:
+        k8s_client.create_namespace(name, cluster_id=cluster_id)
         return {"message": f"Namespace '{name}' created successfully."}
 
-    def delete_namespace(self, name: str) -> Dict[str, Any]:
-        k8s_client.delete_namespace(name)
+    def delete_namespace(self, name: str, cluster_id: Optional[str] = None) -> Dict[str, Any]:
+        k8s_client.delete_namespace(name, cluster_id=cluster_id)
         return {"message": f"Namespace '{name}' deleted successfully."}
 
 namespace_service = NamespaceService()

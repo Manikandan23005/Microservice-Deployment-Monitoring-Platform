@@ -4,8 +4,10 @@ from app.clients.argocd import argocd_client
 from shared.exceptions import ArgoCDConnectionException
 from app.core.logging import logger
 
+from typing import List, Dict, Any, Optional
+
 class ArgoCDService:
-    def list_applications(self) -> List[Dict[str, Any]]:
+    def list_applications(self, cluster_id: Optional[str] = None) -> List[Dict[str, Any]]:
         """Lists active ArgoCD synced apps with fallback profiles."""
         try:
             apps = argocd_client.list_applications()

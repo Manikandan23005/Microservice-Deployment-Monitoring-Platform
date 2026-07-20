@@ -4,13 +4,13 @@ from app.clients.kubernetes import k8s_client
 from app.core.logging import logger
 
 class PodService:
-    def list_pods(self, namespace: Optional[str] = None) -> List[Dict[str, Any]]:
-        pods = k8s_client.list_pods(namespace)
+    def list_pods(self, namespace: Optional[str] = None, cluster_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        pods = k8s_client.list_pods(namespace, cluster_id=cluster_id)
 
         # Get deployments for GitOps correlation
         try:
             from app.services.deployment_service import deployment_service
-            deployments = deployment_service.list_deployments(namespace)
+            deployments = deployment_service.list_deployments(namespace, cluster_id=cluster_id)
         except Exception:
             deployments = []
 
