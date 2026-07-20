@@ -1,23 +1,76 @@
 # --- Pod Management Service ---
 from typing import List, Dict, Any, Optional
 from app.clients.kubernetes import k8s_client
+from app.core.logging import logger
 
 class PodService:
     def list_pods(self, namespace: Optional[str] = None) -> List[Dict[str, Any]]:
         pods = k8s_client.list_pods(namespace)
+
+        # Get deployments for GitOps correlation
+        try:
+            from app.services.deployment_service import deployment_service
+            deployments = deployment_service.list_deployments(namespace)
+        except Exception:
+            deployments = []
+
+        dep_lookup = {d["name"]: d for d in deployments}
+
         result = []
         for pod in pods:
             container_statuses = pod.status.container_statuses or []
             restarts = sum(cs.restart_count for cs in container_statuses)
             
+            owner_kind = None
+            owner_name = None
+            owner_refs = getattr(pod.metadata, "owner_references", None) or getattr(pod.metadata, "ownerReferences", None)
+            if owner_refs and len(owner_refs) > 0:
+                owner_ref = owner_refs[0]
+                owner_kind = getattr(owner_ref, "kind", None)
+                owner_name = getattr(owner_ref, "name", None)
+
+            deployment_name = None
+            if owner_kind == "ReplicaSet" and owner_name:
+                parts = owner_name.rsplit("-", 1)
+                if len(parts) > 1:
+                    deployment_name = parts[0]
+                else:
+                    deployment_name = owner_name
+            elif owner_kind == "Deployment":
+                deployment_name = owner_name
+
+            gitops_managed = False
+            application_name = None
+            if deployment_name and deployment_name in dep_lookup:
+                dep_info = dep_lookup[deployment_name]
+                gitops_managed = dep_info.get("gitopsManaged", False)
+                application_name = dep_info.get("argocd_app_name")
+            else:
+                labels = getattr(pod.metadata, "labels", None) or {}
+                app_label = labels.get("app") or labels.get("app.kubernetes.io/name")
+                for d_name, d_info in dep_lookup.items():
+                    clean_d_prefix = d_name.replace("-service", "").lower()
+                    if app_label and (clean_d_prefix in app_label.lower() or app_label.lower() in clean_d_prefix):
+                        deployment_name = d_name
+                        gitops_managed = d_info.get("gitopsManaged", False)
+                        application_name = d_info.get("argocd_app_name")
+                        break
+
             result.append({
+                "podName": pod.metadata.name,
                 "name": pod.metadata.name,
                 "namespace": pod.metadata.namespace,
                 "status": pod.status.phase,
                 "restarts": restarts,
                 "ip": pod.status.pod_ip,
                 "node": pod.spec.node_name,
-                "creation_timestamp": pod.metadata.creation_timestamp.isoformat() if pod.metadata.creation_timestamp else None
+                "creation_timestamp": pod.metadata.creation_timestamp.isoformat() if pod.metadata.creation_timestamp else None,
+                "gitopsManaged": gitops_managed,
+                "deploymentName": deployment_name,
+                "applicationName": application_name,
+                "ownerKind": owner_kind or "Node",
+                "ownerName": owner_name or pod.spec.node_name,
+                "manager": "ArgoCD" if gitops_managed else "Kubernetes"
             })
         return result
 

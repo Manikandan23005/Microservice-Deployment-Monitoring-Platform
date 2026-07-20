@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { AppInfo, PodInfo, NodeInfo, AlertInfo, LogLine, AIResponse } from '../types';
+import { AppInfo, NodeInfo, AlertInfo, LogLine, AIResponse } from '../types';
 
 // API base configurations parsed from env or default local dev
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -177,19 +177,26 @@ export const api = {
     };
   },
 
-  getPods: async (ns?: string, scopeParams?: Record<string, string>): Promise<PodInfo[]> => {
+  getPods: async (ns?: string, scopeParams?: Record<string, string>): Promise<any[]> => {
     try {
       const params = new URLSearchParams(scopeParams || {});
       if (ns) params.append('namespace', ns);
       const response = await apiClient.get(`/api/v1/k8s/pods?${params.toString()}`);
       if (response.data && response.data.success) {
         return response.data.data.map((pod: any) => ({
-          name: pod.name,
+          name: pod.name || pod.podName,
+          podName: pod.podName || pod.name,
           namespace: pod.namespace,
           status: pod.status,
           restarts: pod.restarts,
           cpu: '0m',
-          memory: '0Mi'
+          memory: '0Mi',
+          gitopsManaged: pod.gitopsManaged || false,
+          deploymentName: pod.deploymentName,
+          applicationName: pod.applicationName,
+          ownerKind: pod.ownerKind || 'Node',
+          ownerName: pod.ownerName,
+          manager: pod.manager || (pod.gitopsManaged ? 'ArgoCD' : 'Kubernetes')
         }));
       }
     } catch (e) {

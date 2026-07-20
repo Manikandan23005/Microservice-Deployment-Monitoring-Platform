@@ -202,7 +202,10 @@ class ContextBuilder:
                 "namespace": p.get("namespace"),
                 "status": p.get("status"),
                 "restarts": p.get("restarts", 0),
-                "app": p.get("app")
+                "gitopsManaged": p.get("gitopsManaged", False),
+                "deploymentName": p.get("deploymentName"),
+                "applicationName": p.get("applicationName"),
+                "ownerKind": p.get("ownerKind")
             }
             for p in pods[:10]
         ]
