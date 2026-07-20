@@ -7,14 +7,17 @@ from shared.iam import User, Role, UserStatus, Resource, Action
 from app.core.security_pass import hash_password, verify_password
 from app.core.logging import logger
 
+from app.db.postgres import SessionLocal, UserModel, postgres_available
+
 class IAMService:
-    """Manages dynamic Users, Roles, and Permission Matrices in memory/cache storage."""
+    """Manages dynamic Users, Roles, and Permission Matrices with PostgreSQL persistence."""
 
     def __init__(self):
         self._roles: Dict[str, Role] = {}
         self._users: Dict[str, User] = {}
         self._init_default_roles()
         self._init_default_users()
+        self._sync_postgres_users()
 
     def _init_default_roles(self):
         resources = [r.value for r in Resource]
@@ -201,6 +204,32 @@ class IAMService:
             password_hash=hash_password("viewer123"),
             require_password_change=False
         )
+
+    def _sync_postgres_users(self):
+        """Syncs pre-seeded and active user accounts into PostgreSQL table users."""
+        if not (postgres_available and SessionLocal):
+            return
+        try:
+            db = SessionLocal()
+            for u in self._users.values():
+                existing = db.query(UserModel).filter(UserModel.username == u.username).first()
+                if not existing:
+                    db_user = UserModel(
+                        id=str(uuid.uuid4()),
+                        username=u.username,
+                        email=u.email or f"{u.username}@devopsnexus.io",
+                        password_hash=u.password_hash or "",
+                        role=u.role_name,
+                        status=u.status.value if hasattr(u.status, 'value') else str(u.status),
+                        created_at=u.created_at or datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                        last_login=getattr(u, 'last_login', u.created_at) or datetime.datetime.now(datetime.timezone.utc).isoformat()
+                    )
+                    db.add(db_user)
+            db.commit()
+            db.close()
+            logger.info("Successfully synced user accounts into PostgreSQL database 'devops_nexus'.")
+        except Exception as e:
+            logger.warning(f"Failed to sync users into PostgreSQL: {str(e)}")
 
     # --- Role CRUD ---
     def get_roles(self) -> List[Role]:

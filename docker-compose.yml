@@ -8,6 +8,12 @@ services:
     environment:
       - PORT=8000
       - AI_PROVIDER=groq
+      - POSTGRES_HOST=localhost
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=devops_nexus
+      - DATABASE_URL=postgresql://postgres:postgres@localhost:5432/devops_nexus
     env_file:
       - .env
     volumes:
@@ -16,6 +22,7 @@ services:
       - /home/satoru/.kube:/root/.kube
       - /home/satoru/.minikube:/home/satoru/.minikube
     depends_on:
+      - postgres
       - redis
 
   platform-frontend:
@@ -32,7 +39,24 @@ services:
       - ./platform/frontend:/app
       - /app/node_modules
 
+  postgres:
+    image: postgres:16-alpine
+    container_name: devops-nexus-postgres
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=devops_nexus
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
   redis:
     image: redis:7-alpine
+    container_name: devops-nexus-redis
     ports:
       - "6379:6379"
+
+volumes:
+  postgres_data:
