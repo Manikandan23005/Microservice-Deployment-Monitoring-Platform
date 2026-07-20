@@ -58,12 +58,17 @@ class ArgoCDClient:
         self._ensure_token()
         url = f"{self.base_url}/applications/{app_name}/sync"
         try:
-            with httpx.Client(headers=self.headers, verify=False, timeout=2.0) as client:
+            with httpx.Client(headers=self.headers, verify=False, timeout=5.0) as client:
                 response = client.post(url, json={})
+                if response.status_code == 400 and "another operation is already in progress" in response.text:
+                    logger.info(f"Sync already in progress for ArgoCD application {app_name}.")
+                    return {"status": "Syncing", "message": f"ArgoCD sync operation for {app_name} is already in progress."}
                 if response.status_code != 200:
                     raise ArgoCDConnectionException(f"ArgoCD sync failed {response.status_code}: {response.text}")
                 return response.json()
         except Exception as e:
+            if "another operation is already in progress" in str(e):
+                return {"status": "Syncing", "message": f"ArgoCD sync operation for {app_name} is already in progress."}
             logger.error(f"Failed to sync ArgoCD application {app_name}: {str(e)}")
             raise ArgoCDConnectionException(f"ArgoCD connection error: {str(e)}")
 
