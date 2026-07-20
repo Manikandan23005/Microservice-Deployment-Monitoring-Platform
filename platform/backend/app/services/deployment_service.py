@@ -98,7 +98,7 @@ class DeploymentService:
     def scale_deployment(self, namespace: str, name: str, replicas: int, cluster_id: Optional[str] = None) -> Dict[str, Any]:
         target_name = self._resolve_k8s_name(namespace, name, cluster_id=cluster_id)
 
-        # Patch ArgoCD application ignoreDifferences so ArgoCD selfHeal does not revert scaling
+        # 1. Patch ArgoCD application ignoreDifferences so ArgoCD selfHeal does not revert scaling
         try:
             from app.services.argocd_service import argocd_service
             apps = argocd_service.list_applications(cluster_id=cluster_id)
@@ -123,6 +123,28 @@ class DeploymentService:
         except Exception as e:
             logger.warning(f"Could not patch ArgoCD ignoreDifferences during scaling: {str(e)}")
 
+        # 2. Sync HorizontalPodAutoscaler (HPA) bounds so HPA controller does not force-descale low CPU workloads
+        try:
+            clients = k8s_client.get_clients(cluster_id)
+            v1 = clients.get("v1") if isinstance(clients, dict) else clients[0]
+            from kubernetes import client as k8s_sdk
+            hpa_api = k8s_sdk.AutoscalingV2Api(v1.api_client)
+            hpas = hpa_api.list_namespaced_horizontal_pod_autoscaler(namespace)
+            for h in hpas.items:
+                target = h.spec.scale_target_ref
+                if target.kind == "Deployment" and (target.name == target_name or target.name == name):
+                    current_max = h.spec.max_replicas or 10
+                    new_max = max(replicas, current_max)
+                    hpa_api.patch_namespaced_horizontal_pod_autoscaler(
+                        h.metadata.name,
+                        namespace,
+                        {"spec": {"minReplicas": replicas, "maxReplicas": new_max}}
+                    )
+                    logger.info(f"Patched HPA '{h.metadata.name}' (minReplicas={replicas}, maxReplicas={new_max}) to align with scaling request.")
+        except Exception as e:
+            logger.warning(f"Could not patch HPA during scaling: {str(e)}")
+
+        # 3. Scale Deployment in K8s
         k8s_client.scale_deployment(namespace, target_name, replicas, cluster_id=cluster_id)
         return {
             "success": True,
