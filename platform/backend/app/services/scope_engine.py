@@ -34,6 +34,10 @@ class ScopeEngine:
 
     def filter_namespaces(self, namespaces: List[Dict[str, Any]], scope: OperationsScope) -> List[Dict[str, Any]]:
         """Filters namespace objects array according to the operational scope."""
+        if not namespaces:
+            return []
+        if scope.mode == ScopeMode.CLUSTER:
+            return namespaces
         target_namespaces = scope.get_effective_namespaces()
         if not target_namespaces:
             return namespaces
