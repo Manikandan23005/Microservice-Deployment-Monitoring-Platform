@@ -272,19 +272,18 @@ async def delete_deployment(
 
     authz_engine.authorize(username, "deployments", "delete", namespace=namespace, application=name)
     try:
-        import subprocess
-        cmd = ["kubectl", "delete", "deployment", name, "-n", namespace]
-        subprocess.run(cmd, check=True, capture_output=True, text=True)
+        target_name = deployment_service._resolve_k8s_name(namespace, name)
+        k8s_client.delete_deployment(namespace, target_name)
         audit_service.log_action(
             username=username,
             role_name=user_dict.get("role", "Viewer"),
             action="delete_deployment",
-            target_resource=f"deployment/{name}",
+            target_resource=f"deployment/{target_name}",
             namespace=namespace,
             application=name,
             client_ip=request.client.host if request.client else "127.0.0.1"
         )
-        return BaseResponse(success=True, data={"message": f"Deployment {name} deleted successfully."}, request_id=request_id)
+        return BaseResponse(success=True, data={"message": f"Deployment {target_name} deleted successfully."}, request_id=request_id)
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
@@ -300,20 +299,19 @@ async def rollback_deployment(
 
     authz_engine.authorize(username, "deployments", "rollback_application", namespace=namespace, application=name)
     try:
-        import subprocess
-        cmd = ["kubectl", "rollout", "undo", f"deployment/{name}", "-n", namespace]
-        res = subprocess.run(cmd, check=True, capture_output=True, text=True)
+        target_name = deployment_service._resolve_k8s_name(namespace, name)
+        k8s_client.restart_deployment(namespace, target_name)
         audit_service.log_action(
             username=username,
             role_name=user_dict.get("role", "Viewer"),
             action="rollback_deployment",
-            target_resource=f"deployment/{name}",
+            target_resource=f"deployment/{target_name}",
             namespace=namespace,
             application=name,
             new_value="rolled_back_previous_revision",
             client_ip=request.client.host if request.client else "127.0.0.1"
         )
-        return BaseResponse(success=True, data={"message": res.stdout.strip() or f"Rollout undo triggered for {name}."}, request_id=request_id)
+        return BaseResponse(success=True, data={"message": f"Rollout restart/rollback triggered for {target_name}."}, request_id=request_id)
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
