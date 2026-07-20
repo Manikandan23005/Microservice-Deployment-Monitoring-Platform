@@ -28,6 +28,14 @@ export const AICopilotDrawer: React.FC = () => {
 
   const { getScopeParams } = useScope();
 
+  const [activeWorkload, setActiveWorkload] = useState<string>(() => getScopeParams().app || 'auth-service');
+
+  const knownWorkloads = [
+    'auth-service', 'frontend-service', 'gateway-service',
+    'notification-service', 'orders-service', 'payment-service',
+    'products-service', 'traffic-generator', 'users-service'
+  ];
+
   // Load chat history from localStorage
   const [messages, setMessages] = useState<Message[]>(() => {
     try {
@@ -76,6 +84,9 @@ export const AICopilotDrawer: React.FC = () => {
   useEffect(() => {
     const handleCustomTrigger = (e: CustomEvent) => {
       const { prompt, resourceName, resourceKind, namespace } = e.detail || {};
+      if (resourceName) {
+        setActiveWorkload(resourceName);
+      }
       setIsOpen(true);
       if (prompt) {
         handleSendMessage(prompt, resourceName, resourceKind, namespace);
@@ -83,7 +94,7 @@ export const AICopilotDrawer: React.FC = () => {
     };
     window.addEventListener('devops_nexus_ai_investigate' as any, handleCustomTrigger as any);
     return () => window.removeEventListener('devops_nexus_ai_investigate' as any, handleCustomTrigger as any);
-  }, []);
+  }, [activeWorkload]);
 
   const handleSendMessage = async (
     customPrompt?: string,
@@ -119,7 +130,7 @@ export const AICopilotDrawer: React.FC = () => {
       // 1. Run investigation engine
       const invData = await api.investigateCopilot(
         query,
-        targetName || getScopeParams().app || 'auth-service',
+        targetName || activeWorkload || getScopeParams().app || 'auth-service',
         targetKind || 'deployment',
         targetNamespace || getScopeParams().namespace || 'devops-nexus-prod'
       );
@@ -258,9 +269,19 @@ export const AICopilotDrawer: React.FC = () => {
                   Autonomous AIOps Copilot
                   <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
                 </h3>
-                <p className="text-[10px] text-slate-400 font-mono">
-                  Context: <strong className="text-slate-200">{getScopeParams().app || 'auth-service'}</strong> ({getScopeParams().namespace || 'devops-nexus-prod'})
-                </p>
+                <div className="flex items-center gap-1 text-[10px] text-slate-400 font-mono mt-0.5">
+                  <span>Target:</span>
+                  <select
+                    value={activeWorkload}
+                    onChange={(e) => setActiveWorkload(e.target.value)}
+                    className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-700 text-[11px] font-bold text-indigo-300 focus:outline-none focus:border-indigo-500 cursor-pointer"
+                  >
+                    {knownWorkloads.map(w => (
+                      <option key={w} value={w}>{w}</option>
+                    ))}
+                  </select>
+                  <span className="text-slate-500">({getScopeParams().namespace || 'devops-nexus-prod'})</span>
+                </div>
               </div>
             </div>
 
