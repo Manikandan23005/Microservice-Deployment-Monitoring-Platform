@@ -11,6 +11,8 @@ from app.clients.loki import loki_client
 from app.services.audit_service import audit_service
 from app.core.logging import logger
 
+from app.services.ai_agent_pipeline import ai_agent_pipeline
+
 class AICopilotEngine:
     """Enterprise Autonomous AIOps Engine providing context gathering, incident investigation, 
     remediation execution planning, safety guardrails, post-execution verification, and executive reporting."""
@@ -19,110 +21,7 @@ class AICopilotEngine:
         self._execution_plans: Dict[str, Dict[str, Any]] = {}
 
     def collect_full_context(self, cluster_id: Optional[str] = None, scope: Optional[Any] = None) -> Dict[str, Any]:
-        """Gathers multi-dimensional infrastructure telemetry across Kubernetes, ArgoCD, Prometheus, Loki, and Audit logs."""
-        context = {
-            "cluster_id": cluster_id or "default",
-            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-            "k8s": {"deployments": [], "pods": [], "events": []},
-            "argocd": [],
-            "metrics": {},
-            "logs": [],
-            "recent_actions": []
-        }
-
-        # 1. Kubernetes Context
-        try:
-            clients = k8s_client.get_clients(cluster_id)
-            apps_v1 = clients.get("apps_v1") if isinstance(clients, dict) else clients[1]
-            v1 = clients.get("v1") if isinstance(clients, dict) else clients[0]
-
-            namespace = getattr(scope, "namespace", "devops-nexus-prod") or "devops-nexus-prod"
-            
-            # Pods
-            pods = v1.list_namespaced_pod(namespace, timeout_seconds=3)
-            for p in pods.items[:15]:
-                restarts = sum(cs.restart_count for cs in (p.status.container_statuses or []))
-                status_str = p.status.phase
-                if p.status.container_statuses:
-                    for cs in p.status.container_statuses:
-                        if cs.state.waiting:
-                            status_str = cs.state.waiting.reason or status_str
-                        elif cs.state.terminated:
-                            status_str = cs.state.terminated.reason or status_str
-                
-                context["k8s"]["pods"].append({
-                    "name": p.metadata.name,
-                    "namespace": p.metadata.namespace,
-                    "status": status_str,
-                    "restarts": restarts,
-                    "pod_ip": p.status.pod_ip,
-                    "node": p.spec.node_name
-                })
-
-            # Deployments
-            deps = apps_v1.list_namespaced_deployment(namespace, timeout_seconds=3)
-            for d in deps.items[:10]:
-                context["k8s"]["deployments"].append({
-                    "name": d.metadata.name,
-                    "namespace": d.metadata.namespace,
-                    "replicas": d.spec.replicas,
-                    "ready_replicas": d.status.ready_replicas or 0
-                })
-
-            # Events
-            events = v1.list_namespaced_event(namespace, timeout_seconds=3)
-            for e in events.items[:10]:
-                if e.type == "Warning" or e.reason in ["Failed", "BackOff", "Unhealthy", "UnhealthyPod"]:
-                    context["k8s"]["events"].append({
-                        "reason": e.reason,
-                        "message": e.message,
-                        "object": e.involved_object.name,
-                        "type": e.type
-                    })
-        except Exception as e:
-            logger.warning(f"K8s telemetry collection partial error: {str(e)}")
-
-        # 2. ArgoCD Context
-        try:
-            apps = argocd_client.list_applications(cluster_id=cluster_id)
-            for app in apps:
-                context["argocd"].append({
-                    "name": app.get("metadata", {}).get("name"),
-                    "sync": app.get("status", {}).get("sync", {}).get("status"),
-                    "health": app.get("status", {}).get("health", {}).get("status"),
-                    "revision": app.get("status", {}).get("sync", {}).get("revision")
-                })
-        except Exception as e:
-            logger.warning(f"ArgoCD telemetry collection partial error: {str(e)}")
-
-        # 3. Prometheus Metrics Context
-        try:
-            metrics = prometheus_client.get_cluster_metrics()
-            context["metrics"] = {
-                "cpu_utilization": metrics.get("cpu", {}).get("value", 0),
-                "memory_utilization": metrics.get("memory", {}).get("value", 0),
-                "cluster_status": metrics.get("status", "Healthy")
-            }
-        except Exception as e:
-            logger.warning(f"Metrics telemetry collection partial error: {str(e)}")
-
-        # 4. Loki Error Logs Context
-        try:
-            logs = loki_client.query_logs(query='{namespace="devops-nexus-prod"} |= "error"', limit=10)
-            context["logs"] = [l.get("line", "") for l in logs[:5]]
-        except Exception as e:
-            logger.warning(f"Loki telemetry collection partial error: {str(e)}")
-
-        # 5. Audit Logs
-        try:
-            audits = audit_service.get_audit_logs(limit=5)
-            context["recent_actions"] = [
-                f"{a.get('action')} on {a.get('target_resource')} by {a.get('username')}" for a in audits
-            ]
-        except Exception as e:
-            logger.warning(f"Audit log collection partial error: {str(e)}")
-
-        return context
+        return ai_agent_pipeline.orchestrator.collect_evidence("GENERAL_CHAT", None, "devops-nexus-prod", cluster_id)
 
     def investigate_incident(
         self,
@@ -132,184 +31,35 @@ class AICopilotEngine:
         namespace: str = "devops-nexus-prod",
         cluster_id: Optional[str] = None
     ) -> Dict[str, Any]:
-        """Deep infrastructure investigation engine grounded 100% in real live cluster telemetry."""
+        """Deep infrastructure investigation engine driven by ai_agent_pipeline."""
+        res = ai_agent_pipeline.run_pipeline(
+            prompt=prompt,
+            resource_name=resource_name,
+            namespace=namespace,
+            cluster_id=cluster_id
+        )
         
-        # Gather live telemetry context
-        context = self.collect_full_context(cluster_id=cluster_id)
-        
-        all_pods = context["k8s"]["pods"]
-        all_deps = context["k8s"]["deployments"]
-        all_argocd = context["argocd"]
-        all_events = context["k8s"]["events"]
-        metrics = context["metrics"]
-
-        prompt_lower = prompt.lower().strip()
-
-        # --- REAL DATA TELEMETRY SUMMARY ---
-        running_pods = [p for p in all_pods if p["status"] == "Running"]
-        restarting_pods = [p for p in all_pods if p["restarts"] > 0 or p["status"] in ["CrashLoopBackOff", "Error", "OOMKilled"]]
-        image_err_pods = [p for p in all_pods if p["status"] in ["ImagePullBackOff", "ErrImagePull"]]
-        
-        synced_apps = [a for a in all_argocd if a.get("sync") == "Synced" or a.get("status") == "Synced"]
-        out_of_sync_apps = [a for a in all_argocd if a.get("sync") in ["OutOfSync", "Degraded"]]
-        
-        app_names = [a.get("name") for a in all_argocd if a.get("name")]
-
-        # --- QUERY CATEGORY 1: Deployment & GitOps Status Queries ("how many gitops deployments", "list deployments", "gitops status") ---
-        if any(kw in prompt_lower for kw in ["how many", "count", "list deployments", "gitops deployments", "running deployments", "deployments are running"]):
-            total_apps = len(all_argocd) if all_argocd else len(all_deps)
-            if out_of_sync_apps:
-                out_names = ", ".join(a.get("name", "") for a in out_of_sync_apps)
-                return {
-                    "incident_type": "GitOpsOutOfSync",
-                    "severity": "Warning",
-                    "confidence": 99,
-                    "target_resource": out_of_sync_apps[0].get("name", "app"),
-                    "target_namespace": namespace,
-                    "root_cause": f"There are {total_apps} GitOps deployments active. {len(synced_apps)} are Synced & Healthy, but {len(out_of_sync_apps)} application(s) ({out_names}) are currently OutOfSync with Git.",
-                    "evidence": [
-                        f"Total GitOps Applications: {total_apps}",
-                        f"Synced: {len(synced_apps)}/{total_apps}",
-                        f"OutOfSync Applications: {out_names}"
-                    ],
-                    "affected_resources": [a.get("name") for a in out_of_sync_apps],
-                    "recommended_action": "Trigger ArgoCD sync for OutOfSync applications.",
-                    "suggested_plan": {
-                        "action": "sync_argocd",
-                        "label": f"Sync {out_of_sync_apps[0].get('name')}",
-                        "risk_level": "Low"
-                    }
-                }
-            else:
-                return {
-                    "incident_type": "GitOpsDeploymentsSummary",
-                    "severity": "Info",
-                    "confidence": 100,
-                    "target_resource": "GitOps Fleet",
-                    "target_namespace": namespace,
-                    "root_cause": f"There are currently {total_apps} GitOps deployments running in namespace '{namespace}' ({', '.join(app_names[:8])}). All {len(synced_apps)} applications are 100% Synced and Healthy in ArgoCD.",
-                    "evidence": [
-                        f"Active GitOps Applications: {total_apps} (100% Synced)",
-                        f"Active Pods: {len(running_pods)} Running",
-                        f"Cluster CPU Utilization: {metrics.get('cpu_utilization', 4)}%",
-                        "ArgoCD Synchronization: Synced & Healthy"
-                    ],
-                    "affected_resources": app_names,
-                    "recommended_action": "All GitOps workloads are fully synchronized and healthy. No action required.",
-                    "suggested_plan": None
-                }
-
-        # --- QUERY CATEGORY 2: Overall Cluster Health Queries ("cluster health", "system status", "health check") ---
-        if any(kw in prompt_lower for kw in ["cluster health", "system health", "overall health", "cluster status", "system status"]) and not restarting_pods and not out_of_sync_apps:
-            return {
-                "incident_type": "ClusterHealth",
-                "severity": "Info",
-                "confidence": 100,
-                "target_resource": "Local Development Cluster",
-                "target_namespace": namespace,
-                "root_cause": f"Cluster environment '{cluster_id or 'Local Development'}' is HEALTHY. {len(running_pods)} pods are running cleanly across namespace '{namespace}', CPU load is at {metrics.get('cpu_utilization', 4)}%, and 100% of GitOps applications are Synced.",
-                "evidence": [
-                    f"Running Pods: {len(running_pods)}/{len(all_pods)}",
-                    f"ArgoCD Applications: {len(synced_apps)}/{len(all_argocd) or 1} Synced",
-                    f"Cluster CPU Gauge: {metrics.get('cpu_utilization', 4)}%",
-                    f"Cluster RAM Gauge: {metrics.get('memory_utilization', 12)}%"
-                ],
-                "affected_resources": ["Cluster Control Plane"],
-                "recommended_action": "Infrastructure operations are optimal.",
-                "suggested_plan": None
-            }
-
-        # --- INCIDENT PATTERN 1: Real CrashLoopBackOff / Restarts ---
-        if restarting_pods or "crash" in prompt_lower or "backoff" in prompt_lower:
-            target_pod = restarting_pods[0]["name"] if restarting_pods else f"{resource_name or 'auth-service'}-pod"
-            pod_status = restarting_pods[0]["status"] if restarting_pods else "CrashLoopBackOff"
-            restarts = restarting_pods[0]["restarts"] if restarting_pods else 4
-            return {
-                "incident_type": "CrashLoopBackOff",
-                "severity": "Critical",
-                "confidence": 95,
-                "target_resource": resource_name or "auth-service",
-                "target_namespace": namespace,
-                "root_cause": f"Pod '{target_pod}' is experiencing container restarts ({restarts} restarts, status: {pod_status}). Runtime exception during application initialization or database connection refusal.",
-                "evidence": [
-                    f"Pod: {target_pod} (Status: {pod_status})",
-                    f"Container Restarts: {restarts}",
-                    f"Loki Error Log: ConnectionRefusedError: [Errno 111] Connect call failed",
-                    f"Recent Event: {all_events[0]['message'] if all_events else 'Back-off restarting failed container'}"
-                ],
-                "affected_resources": [target_pod, resource_name or "auth-service"],
-                "recommended_action": "Restart Deployment rollout to re-establish database connection pool.",
-                "suggested_plan": {
-                    "action": "restart_deployment",
-                    "label": f"Restart Deployment {resource_name or 'auth-service'}",
-                    "risk_level": "Low"
-                }
-            }
-
-        # --- INCIDENT PATTERN 2: Real ImagePullBackOff ---
-        if image_err_pods or "image" in prompt_lower or "pull" in prompt_lower:
-            target_pod = image_err_pods[0]["name"] if image_err_pods else f"{resource_name or 'auth-service'}-pod"
-            return {
-                "incident_type": "ImagePullBackOff",
-                "severity": "High",
-                "confidence": 92,
-                "target_resource": resource_name or "auth-service",
-                "target_namespace": namespace,
-                "root_cause": f"Kubelet failed to pull container image for pod '{target_pod}'. Registry image tag does not exist or image pull secrets expired.",
-                "evidence": [
-                    f"Pod status: ImagePullBackOff ({target_pod})",
-                    "Kubelet Event: Failed to pull image: rpc error: code = NotFound"
-                ],
-                "affected_resources": [target_pod],
-                "recommended_action": "Rollback ArgoCD deployment to previous stable revision.",
-                "suggested_plan": {
-                    "action": "rollback_argocd",
-                    "label": f"Rollback {resource_name or 'auth-service'} to Previous Revision",
-                    "risk_level": "Medium"
-                }
-            }
-
-        # --- INCIDENT PATTERN 3: Real OutOfSync Application ---
-        if out_of_sync_apps:
-            target_app = out_of_sync_apps[0]["name"]
-            return {
-                "incident_type": "OutOfSync",
-                "severity": "Warning",
-                "confidence": 99,
-                "target_resource": target_app,
-                "target_namespace": namespace,
-                "root_cause": f"ArgoCD Application '{target_app}' is OutOfSync with target Git main branch. Live cluster manifest has drifted from desired state in Git repository.",
-                "evidence": [
-                    f"ArgoCD Sync status: {out_of_sync_apps[0].get('sync')}",
-                    f"Git Revision: {out_of_sync_apps[0].get('revision', '9cd2b13')}",
-                    "Live manifest specification differs from Helm values.yaml"
-                ],
-                "affected_resources": [target_app],
-                "recommended_action": "Execute ArgoCD sync to align live deployment with Git repository.",
-                "suggested_plan": {
-                    "action": "sync_argocd",
-                    "label": f"Sync ArgoCD Application {target_app}",
-                    "risk_level": "Low"
-                }
-            }
-
-        # --- DEFAULT GROUND-TRUTH RESPONSE ---
-        target_name = resource_name or "auth-service"
+        # Format response backward compatible with AICopilotDrawer and AI page
         return {
-            "incident_type": "WorkloadHealthCheck",
-            "severity": "Info",
-            "confidence": 100,
-            "target_resource": target_name,
+            "incident_type": res.get("intent", "ROOT_CAUSE"),
+            "severity": res.get("risk_assessment", "Info"),
+            "evidence_quality": res.get("evidence_quality", "HIGH"),
+            "confidence": 100 if res.get("evidence_quality") == "HIGH" else (80 if res.get("evidence_quality") == "MEDIUM" else 50),
+            "target_resource": resource_name or "auth-service",
             "target_namespace": namespace,
-            "root_cause": f"Resource '{target_name}' in namespace '{namespace}' is fully operational. All associated pods are in Running state and ArgoCD GitOps synchronization is Synced & Healthy.",
-            "evidence": [
-                f"Active Pods: {len(running_pods)} Running",
-                f"Total GitOps Workloads: {len(all_argocd)} Synced & Healthy",
-                f"Cluster CPU Load: {metrics.get('cpu_utilization', 4)}%"
-            ],
-            "affected_resources": [target_name],
-            "recommended_action": "Workload is healthy. No action required.",
-            "suggested_plan": None
+            "root_cause": res.get("root_cause"),
+            "executive_summary": res.get("executive_summary"),
+            "infrastructure_timeline": res.get("infrastructure_timeline"),
+            "observed_symptoms": res.get("observed_symptoms"),
+            "verified_evidence": res.get("verified_evidence"),
+            "evidence": res.get("verified_evidence"),
+            "supporting_evidence": res.get("supporting_evidence"),
+            "affected_resources": res.get("affected_resources"),
+            "recommended_action": res.get("recommended_remediation"),
+            "preventive_recommendations": res.get("preventive_recommendations"),
+            "missing_evidence": res.get("missing_evidence"),
+            "investigation_steps": res.get("investigation_steps"),
+            "suggested_plan": res.get("suggested_plan")
         }
 
     def generate_execution_plan(

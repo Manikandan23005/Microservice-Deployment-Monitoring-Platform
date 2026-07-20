@@ -22,119 +22,32 @@ class AIService:
         session_id: Optional[str] = None,
         scope: Optional[OperationsScope] = None
     ) -> Dict[str, Any]:
-        """Classifies prompt via Query Planner, runs Tool-First execution bypass if possible, or generates LLM triage output."""
+        """Runs query through ai_agent_pipeline Tool-First Evidence-Grounded Engine."""
         current_scope = scope or scope_engine.resolve_scope()
+        from app.services.ai_agent_pipeline import ai_agent_pipeline
         
-        # 1. Check Query Planner for Tool-First Bypassing
-        plan_steps, bypass_llm, direct_result = query_planner.plan_execution(prompt, scope=current_scope)
-        
-        if bypass_llm and direct_result:
-            logger.info(f"Query Planner bypassed LLM for direct prompt: {prompt}")
-            session_manager.add_message(session_id, "user", prompt)
-            session_manager.add_message(session_id, "assistant", direct_result.get("summary", ""))
-            return direct_result
-
-        # 2. Flow through Context Builder if reasoning/diagnostics are needed
-        start_ctx = time.perf_counter()
-        context = context_builder.build_query_context(prompt, session_id=session_id, scope=current_scope)
-        duration_ctx = time.perf_counter() - start_ctx
-        try:
-            from app.utils.observability import observability_metrics
-            observability_metrics.record_context(duration_ctx)
-        except Exception:
-            pass
-        
-        # Pull conversational history
-        history = session_manager.get_history(session_id)
-        history_str = "\n".join([f"{msg['role'].capitalize()}: {msg['content']}" for msg in history[-4:]])
-
-        # Force strict grounded reasoning without chatbot conversational filler
-        system_prompt = (
-            "You are DevOps Nexus AI Assistant, an enterprise GitOps-aware AIOps engine. "
-            "You answer questions ONLY using the provided runtime context and execution results. Do not invent details.\n"
-            "EXACT COUNTS RULE: Use `gitops_summary` and `deployments_summary` in the telemetry context for exact counts of GitOps deployments, total deployments, and sync statuses. Never claim data is missing, truncated, or unknown when `gitops_summary` provides total counts.\n"
-            "GITOPS RULE: You understand GitOps reconciliation. If a user asks to delete or modify a GitOps-managed deployment (`gitopsManaged == true`), explain that direct deletion from Kubernetes will only remove it temporarily because ArgoCD Self-Healing will automatically recreate it. Always recommend the GitOps-safe workflow: 'Disconnect from GitOps -> Deployment becomes Kubernetes Managed -> Delete Deployment'.\n"
-            "GITOPS POD RULE: If a user asks to delete a GitOps-managed pod (`gitopsManaged == true`), explain that deleting this pod is safe because the ReplicaSet/Deployment controller will automatically create a replacement pod immediately, and ArgoCD will remain Synced.\n"
-            "GITOPS RECONNECT RULE: If a user asks to reconnect a Kubernetes-managed deployment (`gitopsManaged == false`), explain that they can choose between two reconnect modes: (1) Adopt Current Deployment (preserves live deployment configuration and writes it as desired state in Git), or (2) Restore Git Version (restores configuration stored in Git main).\n"
-            "If the context shows the cluster has no workloads or is empty, state so clearly.\n"
-            "Output your entire response as a single, valid JSON object conforming exactly to this schema:\n"
-            "{\n"
-            '  "summary": "Short 1-sentence summary of the current operational status.",\n'
-            '  "root_cause": "Detailed explanation of the resource or query grounded solely in the context.",\n'
-            '  "evidence": ["Specific metric values, status phases, or logs from the context"],\n'
-            '  "affected_resources": ["List of Kubernetes resources affected"],\n'
-            '  "recommendations": ["Concrete remediation recommendations referencing actual resources"],\n'
-            '  "severity": "Info | Warning | Critical",\n'
-            '  "confidence": 100\n'
-            "}"
+        res = ai_agent_pipeline.run_pipeline(
+            prompt=prompt,
+            resource_name=current_scope.application,
+            namespace=current_scope.namespace or "devops-nexus-prod"
         )
 
-        # Direct Telemetry Intercept for Count Questions to Guarantee 100% Accuracy
-        prompt_lower = prompt.lower().strip()
-        if any(kw in prompt_lower for kw in ["how many", "count", "list deployments", "gitops deployments", "running deployments", "deployments are running"]):
-            g_summary = context.get("gitops_summary", {})
-            total_g = g_summary.get("total_gitops_applications", 9)
-            synced_g = g_summary.get("synced_count", 9)
-            names_g = g_summary.get("application_names", [])
-            app_str = ", ".join(names_g[:8]) if names_g else "auth-prod, frontend-prod, gateway-prod"
-            
-            parsed_json = {
-                "summary": f"There are currently {total_g} GitOps deployments running in namespace '{current_scope.namespace}'.",
-                "root_cause": f"There are {total_g} GitOps applications active in ArgoCD ({app_str}). All {synced_g} applications are 100% Synced and Healthy.",
-                "evidence": [
-                    f"Active GitOps Applications: {total_g} (100% Synced)",
-                    f"Active Pods: {len(context.get('pods', []))} Running",
-                    f"Cluster CPU Load: {context.get('metrics', {}).get('cpu_utilization', 4)}%"
-                ],
-                "affected_resources": names_g,
-                "recommendations": ["All GitOps applications are fully synchronized and healthy. No action required."],
-                "severity": "Info",
-                "confidence": 100
-            }
-            session_manager.add_message(session_id, "user", prompt)
-            session_manager.add_message(session_id, "assistant", parsed_json.get("summary", ""))
-            return parsed_json
-        
-        context_json_str = json.dumps(context, indent=2)
-        if len(context_json_str) > 5000:
-            context_json_str = context_json_str[:5000] + "\n... [Context truncated for token safety]"
+        parsed_json = {
+            "summary": res.get("executive_summary"),
+            "root_cause": res.get("root_cause"),
+            "evidence": res.get("verified_evidence"),
+            "supporting_evidence": res.get("supporting_evidence"),
+            "affected_resources": res.get("affected_resources"),
+            "recommendations": [res.get("recommended_remediation")],
+            "severity": res.get("risk_assessment"),
+            "evidence_quality": res.get("evidence_quality"),
+            "confidence": 100 if res.get("evidence_quality") == "HIGH" else (80 if res.get("evidence_quality") == "MEDIUM" else 50),
+            "investigation_steps": res.get("investigation_steps"),
+            "suggested_plan": res.get("suggested_plan")
+        }
 
-        prompt_with_context = (
-            f"Current Operational Scope: Mode={current_scope.mode.value.upper()}, Namespace={current_scope.namespace}, App={current_scope.application}\n\n"
-            f"User Session Context:\n{history_str}\n\n"
-            f"Collected Telemetry Context:\n{context_json_str}\n\n"
-            f"User Operational Query: {prompt}"
-        )
-
-        logger.info(f"Dispatching query with scope {current_scope.mode.value} to provider {provider or 'default'}")
-        
-        try:
-            start_ai = time.perf_counter()
-            raw_response = llm_client.generate_chat_response(prompt_with_context, system_prompt=system_prompt)
-            duration_ai = time.perf_counter() - start_ai
-            try:
-                from app.utils.observability import observability_metrics
-                observability_metrics.record_ai(duration_ai)
-            except Exception:
-                pass
-            parsed_json = self._parse_json_response(raw_response)
-        except Exception as e:
-            logger.warning(f"LLM generation failed or rate limited ({str(e)}). Falling back to rule-based AIOps diagnostics engine.")
-            diagnostics = context.get("telemetry_diagnostics", [])
-            summary = diagnostics[0] if diagnostics else f"Telemetry analysis completed for query: {prompt}"
-            parsed_json = {
-                "summary": summary,
-                "root_cause": f"Operational telemetry evaluated under active scope {current_scope.mode.value.upper()}.",
-                "evidence": [f"CPU: {context.get('metrics', {}).get('cpu_utilization', 0)}%", f"Memory: {context.get('metrics', {}).get('memory_utilization', 0)}%"],
-                "affected_resources": [p["name"] for p in context.get("pods", []) if p.get("status") != "Running"] or ["cluster"],
-                "recommendations": ["Inspect workload deployment status", "Check pod logs and metrics charts"],
-                "severity": "Info",
-                "confidence": 95
-            }
-        
         session_manager.add_message(session_id, "user", prompt)
         session_manager.add_message(session_id, "assistant", parsed_json.get("summary", ""))
-        
         return parsed_json
 
     def analyze_incident(

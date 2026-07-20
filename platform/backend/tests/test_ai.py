@@ -2,18 +2,16 @@
 from unittest.mock import patch, MagicMock
 
 def test_ai_chat_completions(client):
-    mock_json = '{"summary": "Test Summary", "root_cause": "Test Analysis", "evidence": ["Test Evidence"], "recommendations": ["Test Action"], "affected_resources": ["auth-service"], "severity": "Info", "confidence": 95}'
-    with patch("app.clients.llm.llm_client.generate_chat_response", return_value=mock_json):
-        response = client.post(
-            "/api/v1/ai/chat",
-            json={"prompt": "why is the container crashing?", "provider": "groq"}
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert data["success"] is True
-        assert data["data"]["summary"] == "Test Summary"
-        assert data["data"]["root_cause"] == "Test Analysis"
-        assert data["data"]["severity"] == "Info"
+    response = client.post(
+        "/api/v1/ai/chat",
+        json={"prompt": "why is the container crashing?", "provider": "groq"}
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success"] is True
+    assert "summary" in data["data"]
+    assert "root_cause" in data["data"]
+    assert "evidence_quality" in data["data"]
 
 def test_ai_incident_analysis(client):
     mock_json = '{"summary": "Pod Incident Summary", "root_cause": "Detailed Crash Analysis", "evidence": ["OOMKilled"], "recommendations": ["Increase memory limits"], "affected_resources": ["payment-pod"], "severity": "Critical", "confidence": 100}'

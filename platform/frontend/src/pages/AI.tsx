@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { api } from '../services/api';
 import { AIResponse } from '../types';
-import { Bot, Send, Sparkles, CheckSquare, ShieldCheck, Play } from 'lucide-react';
+import { Bot, Send, Sparkles, CheckSquare, Play } from 'lucide-react';
 import { useScope } from '../context/ScopeContext';
 import { ActionConfirmationModal } from '../components/ActionConfirmationModal';
 
@@ -195,9 +195,12 @@ const AI: React.FC = () => {
                       <Sparkles className="h-4 w-4" />
                       Telemetry Incident Diagnostics
                     </span>
-                    <span className="flex items-center gap-1.5 text-xs text-slate-400 font-medium">
-                      <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
-                      Confidence: {msg.structured.confidence}%
+                    <span className={`px-2.5 py-0.5 rounded text-xs font-bold uppercase tracking-wider border ${
+                      (msg.structured.evidence_quality || 'HIGH') === 'HIGH' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
+                      (msg.structured.evidence_quality || 'HIGH') === 'MEDIUM' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' :
+                      'bg-slate-500/10 text-slate-400 border-slate-700/40'
+                    }`}>
+                      Evidence Quality: {(msg.structured as any).evidence_quality || 'HIGH'}
                     </span>
                   </div>
 

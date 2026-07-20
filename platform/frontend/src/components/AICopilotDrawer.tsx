@@ -309,35 +309,63 @@ export const AICopilotDrawer: React.FC = () => {
 
                   {/* Investigation Report Card */}
                   {m.investigation && (
-                    <div className="mt-3 p-3 rounded-xl bg-slate-900/90 border border-slate-700/80 space-y-2.5 text-[11px]">
+                    <div className="mt-3 p-3.5 rounded-xl bg-slate-900/90 border border-slate-700/80 space-y-2.5 text-[11px]">
                       <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                         <span className="font-bold text-white flex items-center gap-1.5">
                           <Activity className="h-3.5 w-3.5 text-indigo-400" />
-                          {m.investigation.severity === 'Info' ? 'Telemetry Status Summary' : 'Root Cause Analysis'}
+                          {m.investigation.severity === 'Info' ? 'Telemetry Status Summary' : 'Verified Root Cause Report'}
                         </span>
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                          m.investigation.severity === 'Critical' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' :
-                          m.investigation.severity === 'Warning' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
-                          'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                        }`}>
-                          {m.investigation.severity} • {m.investigation.confidence}% {m.investigation.severity === 'Info' ? 'Verified' : 'Confidence'}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                            m.investigation.evidence_quality === 'HIGH' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
+                            m.investigation.evidence_quality === 'MEDIUM' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
+                            'bg-slate-700/40 text-slate-300 border border-slate-600'
+                          }`}>
+                            Evidence Quality: {m.investigation.evidence_quality || 'HIGH'}
+                          </span>
+                        </div>
                       </div>
 
                       <div className="text-slate-300">
-                        <span className="text-slate-400 font-semibold">Classification:</span>{' '}
+                        <span className="text-slate-400 font-semibold">Intent / Classification:</span>{' '}
                         <strong className="text-indigo-300">{m.investigation.incident_type}</strong>
                       </div>
 
-                      {/* Evidence / Metrics List */}
+                      {/* Timeline & Observed Symptoms */}
+                      {m.investigation.infrastructure_timeline && (
+                        <div className="text-[10px] text-slate-400 font-mono">
+                          Timeline: {m.investigation.infrastructure_timeline}
+                        </div>
+                      )}
+
+                      {/* Verified Evidence List */}
                       {m.investigation.evidence?.length > 0 && (
                         <div className="space-y-1">
-                          <span className="text-slate-400 font-semibold">Live Telemetry Evidence:</span>
-                          <ul className="list-disc list-inside space-y-0.5 font-mono text-[10px] text-slate-400 bg-slate-950 p-2 rounded-lg border border-slate-800">
+                          <span className="text-slate-400 font-semibold">Verified Evidence:</span>
+                          <ul className="list-disc list-inside space-y-0.5 font-mono text-[10px] text-slate-300 bg-slate-950 p-2 rounded-lg border border-slate-800">
                             {m.investigation.evidence.map((ev: string, idx: number) => (
                               <li key={idx} className="truncate">{ev}</li>
                             ))}
                           </ul>
+                        </div>
+                      )}
+
+                      {/* Supporting Evidence */}
+                      {m.investigation.supporting_evidence?.length > 0 && (
+                        <div className="space-y-1">
+                          <span className="text-slate-400 font-semibold">Supporting Telemetry / Traces:</span>
+                          <ul className="list-disc list-inside space-y-0.5 font-mono text-[10px] text-slate-400 bg-slate-950 p-2 rounded-lg border border-slate-800">
+                            {m.investigation.supporting_evidence.map((sev: string, idx: number) => (
+                              <li key={idx} className="truncate">{sev}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Preventive Recommendations */}
+                      {m.investigation.preventive_recommendations && (
+                        <div className="p-2 rounded-lg bg-indigo-950/30 border border-indigo-500/20 text-indigo-200 text-[10px]">
+                          <strong>Preventive Recommendation:</strong> {m.investigation.preventive_recommendations}
                         </div>
                       )}
                     </div>

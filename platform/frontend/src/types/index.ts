@@ -48,6 +48,7 @@ export interface AIResponse {
   recommendations: string[];
   severity: string;
   confidence: number;
+  evidence_quality?: string;
   analysis?: string;
   recommendation?: string[];
 }

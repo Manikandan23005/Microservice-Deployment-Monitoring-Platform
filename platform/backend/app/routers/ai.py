@@ -77,58 +77,51 @@ async def chat_troubleshoot_stream(
     
     async def event_generator():
         try:
-            # 1. Ask Query Planner for the checklist
-            plan_steps, bypass_llm, direct_result = query_planner.plan_execution(prompt, scope=scope)
+            from app.services.ai_agent_pipeline import ai_agent_pipeline
             
-            if bypass_llm and direct_result:
-                # Direct tool execution path
-                if "Query Kubernetes Pods" in plan_steps:
-                    yield f"event: progress\ndata: {json.dumps({'status': 'Collecting Pods...'})}\n\n"
-                elif "Query Prometheus Metrics" in plan_steps:
-                    yield f"event: progress\ndata: {json.dumps({'status': 'Collecting Metrics...'})}\n\n"
-                elif "Query ArgoCD Applications status" in plan_steps:
-                    yield f"event: progress\ndata: {json.dumps({'status': 'Collecting Deployments...'})}\n\n"
-                else:
-                    yield f"event: progress\ndata: {json.dumps({'status': 'Collecting Metrics...'})}\n\n"
-                
-                await asyncio.sleep(0.4)
-                yield f"event: progress\ndata: {json.dumps({'status': 'Analyzing...'})}\n\n"
-                await asyncio.sleep(0.3)
-                
-                yield f"event: done\ndata: {json.dumps(direct_result)}\n\n"
-                return
+            # Step 1: Classify Intent
+            intent = ai_agent_pipeline.intent_engine.classify_intent(prompt)
+            yield f"event: progress\ndata: {json.dumps({'status': f'Classified Intent: {intent}'})}\n\n"
+            await asyncio.sleep(0.2)
 
-            # Conversational/Reasoning path
-            yield f"event: progress\ndata: {json.dumps({'status': 'Collecting Pods...'})}\n\n"
-            await asyncio.sleep(0.3)
-            
-            yield f"event: progress\ndata: {json.dumps({'status': 'Collecting Metrics...'})}\n\n"
-            await asyncio.sleep(0.3)
-            
-            yield f"event: progress\ndata: {json.dumps({'status': 'Collecting Logs...'})}\n\n"
-            await asyncio.sleep(0.3)
-            
-            yield f"event: progress\ndata: {json.dumps({'status': 'Analyzing...'})}\n\n"
-            await asyncio.sleep(0.3)
-            
-            yield f"event: progress\ndata: {json.dumps({'status': 'Generating Response...'})}\n\n"
-            
-            # Execute LLM call in worker thread
+            # Step 2: Investigation Planner steps
+            plan_steps = ai_agent_pipeline.planner.create_plan(intent, prompt, app)
+            for st in plan_steps[:5]:
+                yield f"event: progress\ndata: {json.dumps({'status': f'Running: {st}'})}\n\n"
+                await asyncio.sleep(0.25)
+
+            # Execute pipeline
             loop = asyncio.get_event_loop()
-            response_data = await loop.run_in_executor(
+            res = await loop.run_in_executor(
                 None,
-                lambda: ai_service.chat_troubleshoot(prompt, provider=provider, session_id=session_id, scope=scope)
+                lambda: ai_agent_pipeline.run_pipeline(prompt, app, scope.namespace)
             )
+
+            # Format to Base UI Response
+            response_data = {
+                "summary": res.get("executive_summary"),
+                "root_cause": res.get("root_cause"),
+                "evidence": res.get("verified_evidence"),
+                "supporting_evidence": res.get("supporting_evidence"),
+                "affected_resources": res.get("affected_resources"),
+                "recommendations": [res.get("recommended_remediation")],
+                "severity": res.get("risk_assessment"),
+                "evidence_quality": res.get("evidence_quality"),
+                "confidence": 100 if res.get("evidence_quality") == "HIGH" else (80 if res.get("evidence_quality") == "MEDIUM" else 50),
+                "investigation_steps": res.get("investigation_steps"),
+                "suggested_plan": res.get("suggested_plan")
+            }
             
             yield f"event: done\ndata: {json.dumps(response_data)}\n\n"
         except Exception as e:
             err_payload = {
-                "summary": "AI Diagnostics Connection Offline",
+                "summary": "AI Agentic Pipeline Connection Offline",
                 "root_cause": f"An unhandled error occurred during pipeline execution: {str(e)}",
                 "evidence": ["Server-Sent Events pipeline generator failed."],
                 "affected_resources": [],
                 "recommendations": ["Try refreshing or check application settings."],
                 "severity": "Critical",
+                "evidence_quality": "LOW",
                 "confidence": 0
             }
             yield f"event: done\ndata: {json.dumps(err_payload)}\n\n"
