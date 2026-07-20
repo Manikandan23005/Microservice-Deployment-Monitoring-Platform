@@ -16,12 +16,18 @@ class ArgoCDService:
                 health_status = status.get("health", {}).get("status", "Unknown")
                 if sync_status == "Unknown" and health_status == "Healthy":
                     sync_status = "Synced"
+                dest_ns = app.get("spec", {}).get("destination", {}).get("namespace", "devops-nexus-prod")
+                app_name = app.get("metadata", {}).get("name", "")
                 result.append({
-                    "name": app.get("metadata", {}).get("name"),
+                    "name": app_name,
+                    "status": sync_status,
                     "sync_status": sync_status,
                     "health_status": health_status,
                     "repo_url": app.get("spec", {}).get("source", {}).get("repoURL"),
-                    "path": app.get("spec", {}).get("source", {}).get("path")
+                    "path": app.get("spec", {}).get("source", {}).get("path"),
+                    "targetRevision": app.get("spec", {}).get("source", {}).get("targetRevision", "HEAD"),
+                    "destination_namespace": dest_ns,
+                    "environment": "prod" if "-prod" in app_name else "dev"
                 })
             return result
         except ArgoCDConnectionException:

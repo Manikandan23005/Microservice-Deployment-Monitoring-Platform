@@ -93,7 +93,8 @@ class ScopeEngine:
         if target_namespaces:
             filtered = [
                 a for a in filtered 
-                if any(ns in a.get("path", "") or ns in a.get("name", "") for ns in target_namespaces) or
+                if a.get("destination_namespace") in target_namespaces or
+                   any(ns in a.get("path", "") or ns in a.get("name", "") for ns in target_namespaces) or
                    a.get("environment", "") == "prod"
             ]
 
