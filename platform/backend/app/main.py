@@ -18,6 +18,8 @@ from app.routers.ai import router as ai_router
 # Setup logger configurations on startup
 setup_logging()
 
+from app.services.port_supervisor import port_supervisor
+
 # Initialize FastAPI application
 app = FastAPI(
     title="Microservice Deployment & Monitoring Platform",
@@ -27,6 +29,13 @@ app = FastAPI(
     redoc_url="/redoc",
     openapi_url="/openapi.json"
 )
+
+@app.on_event("startup")
+async def startup_event():
+    try:
+        port_supervisor.ensure_telemetry_ports()
+    except Exception as e:
+        setup_logging().warning(f"Telemetry port supervisor failed on startup: {str(e)}")
 
 # Exception handlers for request/response validation and uniform error formats
 @app.exception_handler(HTTPException)

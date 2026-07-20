@@ -4,9 +4,10 @@ from typing import Dict, Any, Optional
 from app.core.settings import settings
 from shared.exceptions import TelemetryFetchException
 from app.core.logging import logger
+from app.services.port_supervisor import port_supervisor
 
 class LokiClient:
-    """Sends queries to Loki LogQL HTTP API endpoints."""
+    """Sends queries to Loki LogQL HTTP API endpoints with automatic port supervisor self-repair."""
     def __init__(self):
         self.base_url = settings.LOKI_URL or "http://localhost:3100"
 
@@ -28,8 +29,16 @@ class LokiClient:
                 if response.status_code != 200:
                     raise TelemetryFetchException(f"Loki query_range returned status {response.status_code}: {response.text}")
                 return response.json()
-        except Exception as e:
-            logger.error(f"Loki range query failed: {str(e)}")
-            raise TelemetryFetchException(f"Loki server unavailable: {str(e)}")
+        except Exception:
+            # Auto-repair port-forward if connection was refused
+            port_supervisor.ensure_telemetry_ports()
+            try:
+                with httpx.Client(timeout=1.5) as client:
+                    response = client.get(url, params=params)
+                    if response.status_code == 200:
+                        return response.json()
+            except Exception as e:
+                logger.error(f"Loki range query failed after auto-repair: {str(e)}")
+            raise TelemetryFetchException("Loki server unavailable.")
 
 loki_client = LokiClient()
