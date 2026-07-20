@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   Server, Plus, RefreshCw, AlertTriangle, Star, 
-  Zap, Upload, X
+  Zap, Upload, X, Trash2
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useCluster } from '../context/ClusterContext';
@@ -69,6 +69,17 @@ export const Clusters: React.FC = () => {
       await refreshClusters();
     } catch (e) {
       console.error('Failed to set default cluster:', e);
+    }
+  };
+
+  const handleDeleteCluster = async (clusterId: string, name: string) => {
+    if (window.confirm(`Are you sure you want to delete cluster "${name}" from the Multi-Cluster Registry?`)) {
+      try {
+        await api.deleteCluster(clusterId);
+        await refreshClusters();
+      } catch (e) {
+        console.error('Failed to delete cluster:', e);
+      }
     }
   };
 
@@ -310,6 +321,15 @@ export const Clusters: React.FC = () => {
                             className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-md shadow-blue-500/20 transition cursor-pointer"
                           >
                             <span>Switch</span>
+                          </button>
+                        )}
+                        {!cluster.is_default && (
+                          <button
+                            onClick={() => handleDeleteCluster(cluster.id, cluster.name)}
+                            className="px-2 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-xs font-semibold border border-rose-500/20 transition cursor-pointer"
+                            title="Delete cluster from registry"
+                          >
+                            <Trash2 className="h-3.5 w-3.5 inline" />
                           </button>
                         )}
                       </td>

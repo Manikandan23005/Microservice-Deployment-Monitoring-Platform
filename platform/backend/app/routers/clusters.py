@@ -133,8 +133,8 @@ async def set_default_cluster(request: Request, cluster_id: str = Path(...)):
             c["is_default"] = False
 
     audit_service.log_action(
-        username=user.username if user else "admin",
-        role_name=user.role_name if user else "Administrator",
+        username=user.get("username") or user.get("sub") or "admin",
+        role_name=user_role,
         action="default_cluster_changed",
         target_resource=f"cluster/{cluster_id}",
         workspace="cluster",
@@ -144,3 +144,26 @@ async def set_default_cluster(request: Request, cluster_id: str = Path(...)):
     )
 
     return BaseResponse(success=True, data=target, request_id=request_id)
+
+@router.delete("/{cluster_id}", response_model=BaseResponse)
+async def delete_cluster(request: Request, cluster_id: str = Path(...)):
+    """Deletes a cluster from the Multi-Cluster Registry."""
+    user = get_current_user(request)
+    user_role = user.get("role", "Viewer")
+    if user_role not in ["Administrator", "DevOps Engineer"]:
+        raise HTTPException(status_code=403, detail="Operation not permitted for your current access level.")
+
+    request_id = getattr(request.state, "request_id", None)
+    success = cluster_registry.delete_cluster(cluster_id)
+
+    if success:
+        audit_service.log_action(
+            username=user.get("username") or user.get("sub") or "admin",
+            role_name=user_role,
+            action="cluster_deleted",
+            target_resource=f"cluster/{cluster_id}",
+            workspace="cluster",
+            status="SUCCESS"
+        )
+
+    return BaseResponse(success=success, data={"message": f"Cluster {cluster_id} deleted successfully."}, request_id=request_id)

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, GitBranch, Cpu, Layers, BarChart3, 
-  Terminal, AlertTriangle, Bot, Settings, Sun, Moon, Menu, X, TerminalSquare, Globe, Server,
+  Terminal, AlertTriangle, Bot, Settings, Sun, Moon, Menu, X, TerminalSquare, Server,
   Users, Shield, Grid, ShieldAlert
 } from 'lucide-react';
 import { api } from '../services/api';
@@ -23,8 +23,7 @@ const DashboardLayout: React.FC = () => {
     selectedApp,
     setSelectedApp,
     selectedDomain,
-    setSelectedDomain,
-    getScopeLabel
+    setSelectedDomain
   } = useScope();
 
   useEffect(() => {
@@ -158,21 +157,15 @@ const DashboardLayout: React.FC = () => {
       <div className={`flex-1 flex flex-col transition-all duration-300 ${sidebarOpen ? 'pl-64' : 'pl-20'}`}>
         
         {/* Top Navbar with Operations Scope Controls */}
-        <header className="h-16 flex items-center justify-between px-6 bg-white/60 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800 backdrop-blur-md sticky top-0 z-30">
+        <header className="h-16 flex items-center justify-between px-6 bg-white/60 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800 backdrop-blur-md sticky top-0 z-30 min-w-0">
           
-          {/* Left: Breadcrumbs & Operations Scope Indicator */}
-          <div className="flex items-center gap-3 text-sm">
-            <span className="text-slate-400 font-medium">Platform / {breadcrumb}</span>
-            <span className="text-slate-600 dark:text-slate-700">|</span>
-            {/* Active Scope Badge */}
-            <span className="px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-500 text-xs font-bold flex items-center gap-1.5 shadow-sm">
-              <Globe className="h-3.5 w-3.5" />
-              {getScopeLabel()}
-            </span>
+          {/* Left: Clean Breadcrumbs */}
+          <div className="flex items-center gap-3 text-sm flex-shrink-0">
+            <span className="text-slate-400 font-medium tracking-wide">Platform / {breadcrumb}</span>
           </div>
 
-          {/* Center-Right: Operations Scope Control Selectors */}
-          <div className="flex items-center gap-3">
+          {/* Right: Operations Controls & User Profile */}
+          <div className="flex items-center gap-2.5 flex-shrink max-w-[calc(100%-200px)] overflow-x-auto py-1 no-scrollbar">
             {/* Global Multi-Cluster Selector */}
             <ClusterSelector />
 

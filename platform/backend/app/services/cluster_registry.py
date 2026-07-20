@@ -210,6 +210,21 @@ class ClusterRegistryService:
 
         return cluster
 
+    def delete_cluster(self, cluster_id: str) -> bool:
+        if cluster_id in self._memory_clusters:
+            del self._memory_clusters[cluster_id]
+
+        if postgres_available and SessionLocal:
+            try:
+                db = SessionLocal()
+                deleted = db.query(ClusterModel).filter(ClusterModel.id == cluster_id).delete()
+                db.commit()
+                db.close()
+                return deleted > 0
+            except Exception as e:
+                logger.error(f"Failed to delete cluster {cluster_id} in PostgreSQL: {str(e)}")
+        return True
+
     def parse_kubeconfig_contexts(self, raw_content: str) -> List[Dict[str, Any]]:
         """Parses contexts and clusters from uploaded/provided kubeconfig content."""
         try:

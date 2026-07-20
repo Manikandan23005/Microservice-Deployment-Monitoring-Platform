@@ -9,28 +9,44 @@ from shared.exceptions import ArgoCDConnectionException
 class ArgoCDClient:
     """Manages connections to the ArgoCD API Server."""
     def __init__(self):
-        self.server = settings.ARGOCD_SERVER or "localhost:8080"
+        self.default_server = settings.ARGOCD_SERVER or "192.168.49.2:31709"
         self.token = settings.ARGOCD_TOKEN
-        self.base_url = f"https://{self.server}/api/v1"
         self.headers = {
             "Content-Type": "application/json"
         }
         if self.token and self.token != "my-argocd-token-placeholder":
             self.headers["Authorization"] = f"Bearer {self.token}"
 
-    def _ensure_token(self):
+    def _get_base_url(self, cluster_id: Optional[str] = None) -> str:
+        try:
+            from app.services.cluster_registry import cluster_registry
+            cluster = cluster_registry.get_cluster(cluster_id)
+            argocd_url = cluster.get("argocd_url") if cluster else None
+            if argocd_url:
+                if not argocd_url.startswith("http"):
+                    return f"https://{argocd_url}/api/v1"
+                return f"{argocd_url}/api/v1"
+        except Exception:
+            pass
+        return f"https://{self.default_server}/api/v1"
+
+    def _ensure_token(self, cluster_id: Optional[str] = None):
         """Programmatically retrieves credentials from K8s secrets and generates a session token."""
         if "Authorization" in self.headers and self.token:
             return
 
+        base_url = self._get_base_url(cluster_id)
         try:
             from app.clients.kubernetes import k8s_client
+            clients = k8s_client.get_clients(cluster_id)
+            v1 = clients.get("v1") if isinstance(clients, dict) else clients[0]
+            
             # Fetch initial admin credentials directly from cluster secret
-            secret = k8s_client.v1.read_namespaced_secret("argocd-initial-admin-secret", "argocd")
+            secret = v1.read_namespaced_secret("argocd-initial-admin-secret", "argocd")
             password = base64.b64decode(secret.data["password"]).decode("utf-8").strip()
 
-            url = f"{self.base_url}/session"
-            with httpx.Client(verify=False, timeout=2.0) as client:
+            url = f"{base_url}/session"
+            with httpx.Client(verify=False, timeout=3.0) as client:
                 response = client.post(url, json={"username": "admin", "password": password})
                 if response.status_code == 200:
                     self.token = response.json()["token"]
@@ -41,11 +57,12 @@ class ArgoCDClient:
         except Exception as e:
             logger.warning(f"ArgoCD client failed to auto-authenticate: {str(e)}")
 
-    def list_applications(self) -> List[Dict[str, Any]]:
-        self._ensure_token()
-        url = f"{self.base_url}/applications"
+    def list_applications(self, cluster_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        self._ensure_token(cluster_id)
+        base_url = self._get_base_url(cluster_id)
+        url = f"{base_url}/applications"
         try:
-            with httpx.Client(headers=self.headers, verify=False, timeout=2.0) as client:
+            with httpx.Client(headers=self.headers, verify=False, timeout=3.0) as client:
                 response = client.get(url)
                 if response.status_code != 200:
                     raise ArgoCDConnectionException(f"ArgoCD returned status {response.status_code}: {response.text}")

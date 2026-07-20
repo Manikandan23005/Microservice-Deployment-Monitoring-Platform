@@ -575,5 +575,9 @@ export const api = {
 
   setDefaultCluster: async (id: string): Promise<any> => {
     return apiClient.post(`/api/v1/clusters/${id}/set-default`);
+  },
+
+  deleteCluster: async (id: string): Promise<any> => {
+    return apiClient.delete(`/api/v1/clusters/${id}`);
   }
 };
