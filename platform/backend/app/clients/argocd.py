@@ -74,7 +74,7 @@ class ArgoCDClient:
 
     def refresh_application(self, app_name: str) -> Dict[str, Any]:
         self._ensure_token()
-        url = f"{self.base_url}/applications/{app_name}?refresh=normal"
+        url = f"{self.base_url}/applications/{app_name}?refresh=hard"
         try:
             with httpx.Client(headers=self.headers, verify=False, timeout=5.0) as client:
                 response = client.get(url)
