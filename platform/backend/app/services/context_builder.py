@@ -193,23 +193,53 @@ class ContextBuilder:
         if resolved_service:
             context["resolved_service"] = resolved_service
 
-        # 2. Selective scope-filtered queries
+        # 2. Selective scope-filtered queries with compact summaries
         raw_pods = self._get_pods()
         pods = scope_engine.filter_pods(raw_pods, current_scope)
-        context["pods"] = pods
+        context["pods"] = [
+            {
+                "name": p.get("name"),
+                "namespace": p.get("namespace"),
+                "status": p.get("status"),
+                "restarts": p.get("restarts", 0),
+                "app": p.get("app")
+            }
+            for p in pods[:10]
+        ]
 
         raw_deps = self._get_deployments()
         deps = scope_engine.filter_deployments(raw_deps, current_scope)
-        context["deployments"] = deps
+        context["deployments"] = [
+            {
+                "name": d.get("name"),
+                "namespace": d.get("namespace"),
+                "replicas": d.get("replicas"),
+                "available_replicas": d.get("available_replicas")
+            }
+            for d in deps[:10]
+        ]
 
-        context["metrics"] = self._get_metrics()
+        raw_metrics = self._get_metrics()
+        context["metrics"] = {
+            "cpu_utilization": round(raw_metrics.get("cpu_utilization", 0.0), 1),
+            "memory_utilization": round(raw_metrics.get("memory_utilization", 0.0), 1),
+            "network_throughput_bytes": round(raw_metrics.get("network_throughput_bytes", 0.0), 1)
+        }
 
         raw_apps = self._get_argocd_apps()
         apps = scope_engine.filter_argocd_apps(raw_apps, current_scope)
-        context["argocd_status"] = apps
+        context["argocd_status"] = [
+            {
+                "name": a.get("name"),
+                "sync_status": a.get("sync_status"),
+                "health_status": a.get("health_status")
+            }
+            for a in apps[:10]
+        ]
 
         raw_ns = self._get_namespaces()
-        context["namespaces"] = scope_engine.filter_namespaces(raw_ns, current_scope)
+        filtered_ns = scope_engine.filter_namespaces(raw_ns, current_scope)
+        context["namespaces"] = [n.get("name") if isinstance(n, dict) else n for n in filtered_ns[:10]]
 
         # 3. Incident heuristics analyzer
         diagnostics = incident_analyzer.analyze_active_incidents(pods, deps, context["metrics"], apps)

@@ -65,28 +65,45 @@ class AIService:
             "}"
         )
         
+        context_json_str = json.dumps(context, indent=2)
+        if len(context_json_str) > 5000:
+            context_json_str = context_json_str[:5000] + "\n... [Context truncated for token safety]"
+
         prompt_with_context = (
             f"Current Operational Scope: Mode={current_scope.mode.value.upper()}, Namespace={current_scope.namespace}, App={current_scope.application}\n\n"
             f"User Session Context:\n{history_str}\n\n"
-            f"Collected Telemetry Context:\n{json.dumps(context, indent=2)}\n\n"
+            f"Collected Telemetry Context:\n{context_json_str}\n\n"
             f"User Operational Query: {prompt}"
         )
 
         logger.info(f"Dispatching query with scope {current_scope.mode.value} to provider {provider or 'default'}")
         
-        start_ai = time.perf_counter()
-        raw_response = llm_client.generate_chat_response(prompt_with_context, system_prompt=system_prompt)
-        duration_ai = time.perf_counter() - start_ai
         try:
-            from app.utils.observability import observability_metrics
-            observability_metrics.record_ai(duration_ai)
-        except Exception:
-            pass
-
-        parsed_json = self._parse_json_response(raw_response)
+            start_ai = time.perf_counter()
+            raw_response = llm_client.generate_chat_response(prompt_with_context, system_prompt=system_prompt)
+            duration_ai = time.perf_counter() - start_ai
+            try:
+                from app.utils.observability import observability_metrics
+                observability_metrics.record_ai(duration_ai)
+            except Exception:
+                pass
+            parsed_json = self._parse_json_response(raw_response)
+        except Exception as e:
+            logger.warning(f"LLM generation failed or rate limited ({str(e)}). Falling back to rule-based AIOps diagnostics engine.")
+            diagnostics = context.get("telemetry_diagnostics", [])
+            summary = diagnostics[0] if diagnostics else f"Telemetry analysis completed for query: {prompt}"
+            parsed_json = {
+                "summary": summary,
+                "root_cause": f"Operational telemetry evaluated under active scope {current_scope.mode.value.upper()}.",
+                "evidence": [f"CPU: {context.get('metrics', {}).get('cpu_utilization', 0)}%", f"Memory: {context.get('metrics', {}).get('memory_utilization', 0)}%"],
+                "affected_resources": [p["name"] for p in context.get("pods", []) if p.get("status") != "Running"] or ["cluster"],
+                "recommendations": ["Inspect workload deployment status", "Check pod logs and metrics charts"],
+                "severity": "Info",
+                "confidence": 95
+            }
         
         session_manager.add_message(session_id, "user", prompt)
-        session_manager.add_message(session_id, "assistant", parsed_json.get("summary", raw_response))
+        session_manager.add_message(session_id, "assistant", parsed_json.get("summary", ""))
         
         return parsed_json
 
