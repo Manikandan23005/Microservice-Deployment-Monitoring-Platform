@@ -253,6 +253,20 @@ class ContextBuilder:
             for a in apps[:10]
         ]
 
+        # Explicit total summaries for ground-truth LLM grounding
+        context["gitops_summary"] = {
+            "total_gitops_applications": len(raw_apps),
+            "synced_count": len([a for a in raw_apps if a.get("sync_status") in ["Synced", "Unknown"] or a.get("status") == "Synced"]),
+            "out_of_sync_count": len([a for a in raw_apps if a.get("sync_status") in ["OutOfSync", "Degraded"]]),
+            "application_names": [a.get("name") for a in raw_apps if a.get("name")]
+        }
+
+        context["deployments_summary"] = {
+            "total_deployments": len(raw_deps),
+            "gitops_managed_count": len([d for d in raw_deps if d.get("gitopsManaged")]),
+            "deployment_names": [d.get("name") for d in raw_deps if d.get("name")]
+        }
+
         raw_ns = self._get_namespaces()
         filtered_ns = scope_engine.filter_namespaces(raw_ns, current_scope)
         context["namespaces"] = [n.get("name") if isinstance(n, dict) else n for n in filtered_ns[:10]]
