@@ -94,8 +94,7 @@ class ScopeEngine:
             filtered = [
                 a for a in filtered 
                 if a.get("destination_namespace") in target_namespaces or
-                   any(ns in a.get("path", "") or ns in a.get("name", "") for ns in target_namespaces) or
-                   a.get("environment", "") == "prod"
+                   any(ns in a.get("path", "") or ns in a.get("name", "") for ns in target_namespaces)
             ]
 
         if scope.mode == ScopeMode.APPLICATION and scope.application:
