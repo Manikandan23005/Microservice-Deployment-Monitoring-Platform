@@ -58,6 +58,16 @@ export const api = {
     return [];
   },
 
+  createNamespace: async (name: string): Promise<any> => {
+    const response = await apiClient.post(`/api/v1/k8s/namespaces?name=${encodeURIComponent(name)}`);
+    return response.data;
+  },
+
+  deleteNamespace: async (name: string): Promise<any> => {
+    const response = await apiClient.delete(`/api/v1/k8s/namespaces/${encodeURIComponent(name)}`);
+    return response.data;
+  },
+
   getApplications: async (scopeParams?: Record<string, string>): Promise<AppInfo[]> => {
     try {
       const params = new URLSearchParams(scopeParams || {});

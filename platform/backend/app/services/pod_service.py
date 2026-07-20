@@ -53,14 +53,12 @@ class PodService:
         return k8s_client.get_pod_logs(namespace, name, tail_lines=tail_lines)
 
     def delete_pod(self, namespace: str, name: str) -> Dict[str, Any]:
-        """Deletes a Kubernetes pod resource."""
-        import subprocess
+        """Deletes a Kubernetes pod resource via K8s Python SDK."""
         try:
-            cmd = ["kubectl", "delete", "pod", name, "-n", namespace, "--now"]
-            subprocess.run(cmd, check=True, capture_output=True, text=True)
+            k8s_client.delete_pod(namespace, name)
             return {"message": f"Pod {name} deleted successfully in namespace {namespace}."}
         except Exception as e:
-            return {"message": f"Pod {name} deleted or scheduled for termination: {str(e)}"}
+            return {"message": f"Pod {name} deletion requested: {str(e)}"}
 
     def restart_pod(self, namespace: str, name: str) -> Dict[str, Any]:
         """Restarts a Kubernetes pod by deleting it (ReplicaSet auto-spawns replacement)."""

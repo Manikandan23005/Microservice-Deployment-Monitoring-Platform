@@ -35,6 +35,48 @@ async def list_namespaces(
     except KubernetesClientException as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
+@router.post("/namespaces", response_model=BaseResponse)
+async def create_namespace(request: Request, name: str = Query(..., description="Target namespace identifier.")):
+    request_id = getattr(request.state, "request_id", None)
+    user_dict = get_current_user(request)
+    username = user_dict.get("username") or user_dict.get("sub") or "viewer"
+
+    authz_engine.authorize(username, "namespaces", "create", namespace=name)
+    try:
+        data = namespace_service.create_namespace(name)
+        audit_service.log_action(
+            username=username,
+            role_name=user_dict.get("role", "Viewer"),
+            action="create_namespace",
+            target_resource=f"namespace/{name}",
+            namespace=name,
+            client_ip=request.client.host if request.client else "127.0.0.1"
+        )
+        return BaseResponse(success=True, data=data, request_id=request_id)
+    except KubernetesClientException as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+@router.delete("/namespaces/{name}", response_model=BaseResponse)
+async def delete_namespace(request: Request, name: str = Path(..., description="Target namespace identifier.")):
+    request_id = getattr(request.state, "request_id", None)
+    user_dict = get_current_user(request)
+    username = user_dict.get("username") or user_dict.get("sub") or "viewer"
+
+    authz_engine.authorize(username, "namespaces", "delete", namespace=name)
+    try:
+        data = namespace_service.delete_namespace(name)
+        audit_service.log_action(
+            username=username,
+            role_name=user_dict.get("role", "Viewer"),
+            action="delete_namespace",
+            target_resource=f"namespace/{name}",
+            namespace=name,
+            client_ip=request.client.host if request.client else "127.0.0.1"
+        )
+        return BaseResponse(success=True, data=data, request_id=request_id)
+    except KubernetesClientException as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
 @router.get("/nodes", response_model=BaseResponse)
 async def list_nodes(request: Request):
     request_id = getattr(request.state, "request_id", None)

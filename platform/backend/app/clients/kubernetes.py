@@ -142,6 +142,35 @@ class KubernetesClient:
         except Exception as e:
             raise KubernetesClientException(f"Failed to restart rollout for deployment {name}: {str(e)}")
 
+    def delete_pod(self, namespace: str, name: str) -> Any:
+        self._check_connection()
+        try:
+            return self.v1.delete_namespaced_pod(name, namespace)
+        except Exception as e:
+            raise KubernetesClientException(f"Failed to delete pod {name}: {str(e)}")
+
+    def delete_deployment(self, namespace: str, name: str) -> Any:
+        self._check_connection()
+        try:
+            return self.apps_v1.delete_namespaced_deployment(name, namespace)
+        except Exception as e:
+            raise KubernetesClientException(f"Failed to delete deployment {name}: {str(e)}")
+
+    def create_namespace(self, name: str) -> Any:
+        self._check_connection()
+        try:
+            body = client.V1Namespace(metadata=client.V1ObjectMeta(name=name))
+            return self.v1.create_namespace(body)
+        except Exception as e:
+            raise KubernetesClientException(f"Failed to create namespace {name}: {str(e)}")
+
+    def delete_namespace(self, name: str) -> Any:
+        self._check_connection()
+        try:
+            return self.v1.delete_namespace(name)
+        except Exception as e:
+            raise KubernetesClientException(f"Failed to delete namespace {name}: {str(e)}")
+
     # NetworkingV1 Mappings
     def list_ingresses(self, namespace: Optional[str] = None) -> List[Any]:
         self._check_connection()

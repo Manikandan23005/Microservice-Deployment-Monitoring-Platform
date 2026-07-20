@@ -12,6 +12,12 @@ class NamespaceService:
                 "status": ns.status.phase,
                 "creation_timestamp": ns.metadata.creation_timestamp.isoformat() if ns.metadata.creation_timestamp else None
             })
-        return result
+    def create_namespace(self, name: str) -> Dict[str, Any]:
+        k8s_client.create_namespace(name)
+        return {"message": f"Namespace '{name}' created successfully."}
+
+    def delete_namespace(self, name: str) -> Dict[str, Any]:
+        k8s_client.delete_namespace(name)
+        return {"message": f"Namespace '{name}' deleted successfully."}
 
 namespace_service = NamespaceService()

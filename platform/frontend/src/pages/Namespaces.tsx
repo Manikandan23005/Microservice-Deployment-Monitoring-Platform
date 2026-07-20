@@ -43,9 +43,9 @@ const Namespaces: React.FC = () => {
     setActionLoading(true);
     try {
       if (modalAction === 'delete' && selectedNs) {
-        alert(`Namespace deletion request submitted for ${selectedNs.name}.`);
-      } else if (modalAction === 'create') {
-        alert(`New namespace '${newNsName}' created successfully.`);
+        await api.deleteNamespace(selectedNs.name);
+      } else if (modalAction === 'create' && newNsName) {
+        await api.createNamespace(newNsName);
       }
       setSelectedNs(null);
       setModalAction(null);
@@ -104,7 +104,14 @@ const Namespaces: React.FC = () => {
 
         {canOperate && (
           <button
-            onClick={() => { setSelectedNs(null); setModalAction('create'); }}
+            onClick={() => {
+              const val = prompt("Enter new Kubernetes Namespace name:");
+              if (val) {
+                setNewNsName(val);
+                setSelectedNs(null);
+                setModalAction('create');
+              }
+            }}
             className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-lg shadow-blue-500/20 flex items-center gap-2 transition-all cursor-pointer"
           >
             <Plus className="h-4 w-4" />
