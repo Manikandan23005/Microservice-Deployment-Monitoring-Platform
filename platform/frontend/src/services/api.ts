@@ -336,13 +336,30 @@ export const api = {
   login: async (username: string, password: string): Promise<any> => {
     const response = await apiClient.post('/api/v1/auth/login', { username, password });
     if (response.data && response.data.success) {
-      const { token, role } = response.data.data;
+      const { token, role, require_password_change } = response.data.data;
       localStorage.setItem('session_token', token);
       localStorage.setItem('user_role', role);
       localStorage.setItem('username', username);
+      if (require_password_change) {
+        localStorage.setItem('require_password_change', 'true');
+      } else {
+        localStorage.removeItem('require_password_change');
+      }
       return response.data.data;
     }
     throw new Error(response.data?.error?.message || 'Login failed');
+  },
+
+  changePassword: async (oldPassword: string, newPassword: string): Promise<any> => {
+    const response = await apiClient.post('/api/v1/auth/change-password', {
+      old_password: oldPassword,
+      new_password: newPassword
+    });
+    if (response.data && response.data.success) {
+      localStorage.removeItem('require_password_change');
+      return response.data.data;
+    }
+    throw new Error(response.data?.error?.message || 'Password change failed');
   },
 
   logout: async (): Promise<void> => {
@@ -354,6 +371,7 @@ export const api = {
       localStorage.removeItem('session_token');
       localStorage.removeItem('user_role');
       localStorage.removeItem('username');
+      localStorage.removeItem('require_password_change');
     }
   },
 

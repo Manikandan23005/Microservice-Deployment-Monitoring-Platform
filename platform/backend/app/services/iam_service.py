@@ -1,8 +1,10 @@
 # --- DevOps Nexus IAM & Role Service ---
+import os
 import uuid
 import datetime
 from typing import Dict, Any, List, Optional
 from shared.iam import User, Role, UserStatus, Resource, Action
+from app.core.security_pass import hash_password, verify_password
 from app.core.logging import logger
 
 class IAMService:
@@ -18,14 +20,14 @@ class IAMService:
         resources = [r.value for r in Resource]
         actions = [a.value for a in Action]
 
-        # 1. Administrator Template (All Allowed)
+        # 1. Administrator (Full Access)
         admin_matrix = {
             res: {act: True for act in actions}
             for res in resources
         }
         self._roles["Administrator"] = Role(
             name="Administrator",
-            description="Full root administrative access across all workspaces, nodes, and platform settings.",
+            description="Full root administrative access across all platform modules and settings.",
             is_system=True,
             allowed_workspaces=["cluster", "namespace", "app", "infra"],
             allowed_namespaces=["*"],
@@ -49,7 +51,7 @@ class IAMService:
             permissions=pe_matrix
         )
 
-        # 3. DevOps Engineer Template
+        # 3. DevOps Engineer (Dashboard, AI Operations, Kubernetes, Monitoring, GitOps)
         devops_matrix = {
             res: {
                 act: (act in ["view", "create", "update", "restart_deployment", "scale_deployment", "sync_application", "rollback_application", "ai_chat", "ai_incident"])
@@ -62,7 +64,7 @@ class IAMService:
         devops_matrix["settings"]["view"] = False
         self._roles["DevOps Engineer"] = Role(
             name="DevOps Engineer",
-            description="Deployment lifecycle, GitOps synchronization, and incident triage scope.",
+            description="Deployment lifecycle, GitOps synchronization, monitoring, and incident triage.",
             is_system=True,
             allowed_workspaces=["namespace", "app", "infra"],
             allowed_namespaces=["devops-nexus-prod", "monitoring", "logging-lab", "argocd"],
@@ -90,7 +92,7 @@ class IAMService:
             permissions=app_devops_matrix
         )
 
-        # 5. Developer Template
+        # 5. Developer (Dashboard, AI Operations, Deployments, Logs)
         dev_matrix = {
             res: {
                 act: (act in ["view", "restart_deployment", "scale_deployment", "ai_chat"])
@@ -112,7 +114,7 @@ class IAMService:
             permissions=dev_matrix
         )
 
-        # 6. Viewer Template
+        # 6. Viewer (Dashboard, Monitoring, AI Operations Read Only)
         viewer_matrix = {
             res: {
                 act: (act == "view" or act == "ai_chat")
@@ -134,8 +136,13 @@ class IAMService:
 
     def _init_default_users(self):
         now = datetime.datetime.now(datetime.timezone.utc).isoformat()
-        self._users["admin"] = User(
-            username="admin",
+        
+        default_admin_uname = os.getenv("DEFAULT_ADMIN_USERNAME", "admin").lower()
+        default_admin_pwd = os.getenv("DEFAULT_ADMIN_PASSWORD", "DevOpsNexus@123")
+
+        # 1. Default Administrator Account (First Login Password Change Required)
+        self._users[default_admin_uname] = User(
+            username=default_admin_uname,
             full_name="Platform Administrator",
             email="admin@devopsnexus.io",
             role_name="Administrator",
@@ -145,8 +152,11 @@ class IAMService:
             assigned_apps=["*"],
             created_at=now,
             last_login=now,
-            password_hash="admin123"
+            password_hash=hash_password(default_admin_pwd),
+            require_password_change=True
         )
+
+        # 2. Pre-seeded Enterprise Role Accounts
         self._users["devops"] = User(
             username="devops",
             full_name="Lead DevOps Engineer",
@@ -158,8 +168,10 @@ class IAMService:
             assigned_apps=["*"],
             created_at=now,
             last_login=now,
-            password_hash="devops123"
+            password_hash=hash_password("devops123"),
+            require_password_change=False
         )
+
         self._users["developer"] = User(
             username="developer",
             full_name="Backend Application Developer",
@@ -171,8 +183,10 @@ class IAMService:
             assigned_apps=["payment-service", "auth-service"],
             created_at=now,
             last_login=now,
-            password_hash="developer123"
+            password_hash=hash_password("developer123"),
+            require_password_change=False
         )
+
         self._users["viewer"] = User(
             username="viewer",
             full_name="Read-Only Observability Auditor",
@@ -184,7 +198,8 @@ class IAMService:
             assigned_apps=["*"],
             created_at=now,
             last_login=now,
-            password_hash="viewer123"
+            password_hash=hash_password("viewer123"),
+            require_password_change=False
         )
 
     # --- Role CRUD ---
@@ -232,20 +247,25 @@ class IAMService:
         )
         return self.create_role(cloned)
 
-    # --- User CRUD ---
+    # --- User CRUD & Account Lockout ---
     def get_users(self) -> List[User]:
         return list(self._users.values())
 
     def get_user(self, username: str) -> Optional[User]:
         return self._users.get(username.lower())
 
-    def create_user(self, user: User) -> User:
+    def create_user(self, user: User, temporary_password: Optional[str] = None) -> User:
         uname = user.username.lower()
         if uname in self._users:
             raise ValueError(f"User '{user.username}' already exists.")
         user.username = uname
+        
+        pwd = temporary_password or user.password_hash or "TempNexus@123"
+        user.password_hash = hash_password(pwd)
+        user.require_password_change = True
+        
         self._users[uname] = user
-        logger.info(f"Created new IAM user: {user.username}")
+        logger.info(f"Created new IAM user: {user.username} (First Login Password Change Required)")
         return user
 
     def update_user(self, username: str, user_data: Dict[str, Any]) -> User:
@@ -255,7 +275,9 @@ class IAMService:
             raise ValueError(f"User '{username}' not found.")
         
         for k, v in user_data.items():
-            if hasattr(user, k) and v is not None:
+            if k == "password_hash" and v:
+                user.password_hash = hash_password(v)
+            elif hasattr(user, k) and v is not None:
                 setattr(user, k, v)
         
         logger.info(f"Updated IAM user: {username}")
@@ -277,7 +299,49 @@ class IAMService:
         if not user:
             raise ValueError(f"User '{username}' not found.")
         user.status = status
+        if status == UserStatus.ACTIVE:
+            user.is_locked = False
+            user.failed_login_attempts = 0
         logger.info(f"Set status of user '{username}' to {status}")
+        return user
+
+    def record_failed_login(self, username: str) -> bool:
+        """Increments failed login attempts. Locks account after 5 failed attempts."""
+        uname = username.lower()
+        user = self._users.get(uname)
+        if not user:
+            return False
+        user.failed_login_attempts += 1
+        if user.failed_login_attempts >= 5:
+            user.is_locked = True
+            user.status = UserStatus.DISABLED
+            logger.warning(f"Account '@{username}' LOCKED due to 5 repeated failed login attempts.")
+            return True
+        return False
+
+    def reset_failed_login(self, username: str):
+        uname = username.lower()
+        user = self._users.get(uname)
+        if user:
+            user.failed_login_attempts = 0
+
+    def change_password(self, username: str, old_password: str, new_password: str) -> User:
+        """Verifies old password and updates password hash."""
+        uname = username.lower()
+        user = self._users.get(uname)
+        if not user:
+            raise ValueError(f"User '{username}' not found.")
+        
+        if not verify_password(old_password, user.password_hash):
+            raise ValueError("Current password verification failed.")
+        
+        if len(new_password) < 6:
+            raise ValueError("New password must be at least 6 characters long.")
+            
+        user.password_hash = hash_password(new_password)
+        user.require_password_change = False
+        user.failed_login_attempts = 0
+        logger.info(f"Password updated successfully for user '@{username}'.")
         return user
 
 iam_service = IAMService()

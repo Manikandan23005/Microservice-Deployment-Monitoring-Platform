@@ -15,19 +15,17 @@ const Login: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      await api.login(username, password);
-      navigate('/overview');
+      const data = await api.login(username, password);
+      if (data?.require_password_change) {
+        navigate('/force-password-change');
+      } else {
+        navigate('/overview');
+      }
     } catch (err: any) {
       setError(err.message || 'Authentication failed. Please verify credentials.');
     } finally {
       setLoading(false);
     }
-  };
-
-  const selectPreset = (user: string, pass: string) => {
-    setUsername(user);
-    setPassword(pass);
-    setError(null);
   };
 
   return (
@@ -102,47 +100,11 @@ const Login: React.FC = () => {
           <button 
             type="submit"
             disabled={loading}
-            className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 text-sm font-bold text-white shadow-lg shadow-blue-500/20 active:scale-[0.98] transition-all"
+            className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 text-sm font-bold text-white shadow-lg shadow-blue-500/20 active:scale-[0.98] transition-all cursor-pointer"
           >
             {loading ? 'Authenticating Operator...' : 'Authorize Session'}
           </button>
         </form>
-
-        {/* Roles Quick Presets for Enterprise Testing (Controlled by DEV_MODE) */}
-        {localStorage.getItem('dev_mode') !== 'false' && (
-          <div className="space-y-3 pt-2">
-            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 text-center">
-              Dev Mode Preset Roles
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <button 
-                onClick={() => selectPreset('admin', 'admin123')}
-                className="px-3 py-2 rounded-lg bg-slate-800/40 hover:bg-slate-800 text-[11px] text-slate-300 font-medium border border-slate-800 text-center transition-all"
-              >
-                Administrator
-              </button>
-              <button 
-                onClick={() => selectPreset('devops', 'devops123')}
-                className="px-3 py-2 rounded-lg bg-slate-800/40 hover:bg-slate-800 text-[11px] text-slate-300 font-medium border border-slate-800 text-center transition-all"
-              >
-                DevOps Engineer
-              </button>
-              <button 
-                onClick={() => selectPreset('developer', 'developer123')}
-                className="px-3 py-2 rounded-lg bg-slate-800/40 hover:bg-slate-800 text-[11px] text-slate-300 font-medium border border-slate-800 text-center transition-all"
-              >
-                Developer
-              </button>
-              <button 
-                onClick={() => selectPreset('viewer', 'viewer123')}
-                className="px-3 py-2 rounded-lg bg-slate-800/40 hover:bg-slate-800 text-[11px] text-slate-300 font-medium border border-slate-800 text-center transition-all"
-              >
-                Viewer
-              </button>
-            </div>
-          </div>
-        )}
-
       </div>
     </div>
   );

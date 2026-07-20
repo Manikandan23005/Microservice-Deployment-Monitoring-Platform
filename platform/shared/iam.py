@@ -61,8 +61,10 @@ class User(BaseModel):
     assigned_namespaces: List[str] = Field(default_factory=lambda: ["devops-nexus-prod"])
     assigned_apps: List[str] = Field(default_factory=lambda: ["payment-service", "auth-service"])
     created_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).isoformat())
-    last_login: Optional[str] = Field(None, description="Last authenticated timestamp.")
     password_hash: str = Field("admin123", description="Password credential string or hash.")
+    require_password_change: bool = Field(False, description="Flag indicating first login password change is required.")
+    failed_login_attempts: int = Field(0, description="Counter for failed authentication attempts.")
+    is_locked: bool = Field(False, description="Account lockout status flag.")
 
 class AuditLogEntry(BaseModel):
     id: str = Field(..., description="Unique audit event ID.")

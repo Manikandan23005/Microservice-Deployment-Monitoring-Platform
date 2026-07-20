@@ -34,30 +34,55 @@ const DashboardLayout: React.FC = () => {
   }, [darkMode]);
 
   const userRole = localStorage.getItem('user_role') || 'Viewer';
-  const isAdmin = ['Administrator', 'Platform Engineer', 'DevOps Engineer'].includes(userRole);
 
-  const mainNavItems = [
-    { path: '/overview', label: 'Overview', icon: LayoutDashboard },
-    { path: '/deployments', label: 'Deployments', icon: GitBranch },
-    { path: '/pods', label: 'Pods', icon: Cpu },
-    { path: '/nodes', label: 'Nodes', icon: Server },
-    { path: '/namespaces', label: 'Namespaces', icon: Layers },
-    { path: '/metrics', label: 'Metrics', icon: BarChart3 },
-    { path: '/logs', label: 'Logs', icon: Terminal },
-    { path: '/alerts', label: 'Alerts', icon: AlertTriangle },
-    { path: '/ai', label: 'AI Assistant', icon: Bot },
-  ];
+  let allNavItems = [];
+  if (userRole === 'Administrator' || userRole === 'Platform Engineer') {
+    allNavItems = [
+      { path: '/overview', label: 'Dashboard', icon: LayoutDashboard },
+      { path: '/ai', label: 'AI Operations', icon: Bot },
+      { path: '/deployments', label: 'Deployments', icon: GitBranch },
+      { path: '/pods', label: 'Pods', icon: Cpu },
+      { path: '/nodes', label: 'Nodes', icon: Server },
+      { path: '/namespaces', label: 'Namespaces', icon: Layers },
+      { path: '/metrics', label: 'Metrics', icon: BarChart3 },
+      { path: '/logs', label: 'Logs', icon: Terminal },
+      { path: '/alerts', label: 'Alerts', icon: AlertTriangle },
+      { path: '/admin/users', label: 'Users', icon: Users },
+      { path: '/admin/roles', label: 'Roles', icon: Shield },
+      { path: '/admin/permissions', label: 'Permissions Matrix', icon: Grid },
+      { path: '/admin/audit', label: 'Audit Logs', icon: ShieldAlert },
+      { path: '/settings', label: 'Settings', icon: Settings },
+    ];
+  } else if (userRole === 'DevOps Engineer') {
+    allNavItems = [
+      { path: '/overview', label: 'Dashboard', icon: LayoutDashboard },
+      { path: '/ai', label: 'AI Operations', icon: Bot },
+      { path: '/deployments', label: 'Deployments', icon: GitBranch },
+      { path: '/pods', label: 'Pods', icon: Cpu },
+      { path: '/nodes', label: 'Nodes', icon: Server },
+      { path: '/namespaces', label: 'Namespaces', icon: Layers },
+      { path: '/metrics', label: 'Metrics', icon: BarChart3 },
+      { path: '/logs', label: 'Logs', icon: Terminal },
+      { path: '/alerts', label: 'Alerts', icon: AlertTriangle },
+    ];
+  } else if (userRole === 'Developer') {
+    allNavItems = [
+      { path: '/overview', label: 'Dashboard', icon: LayoutDashboard },
+      { path: '/ai', label: 'AI Operations', icon: Bot },
+      { path: '/deployments', label: 'Deployments', icon: GitBranch },
+      { path: '/logs', label: 'Logs', icon: Terminal },
+    ];
+  } else {
+    // Viewer
+    allNavItems = [
+      { path: '/overview', label: 'Dashboard', icon: LayoutDashboard },
+      { path: '/metrics', label: 'Monitoring', icon: BarChart3 },
+      { path: '/ai', label: 'AI Operations', icon: Bot },
+    ];
+  }
 
-  const adminNavItems = [
-    { path: '/admin/users', label: 'Users', icon: Users },
-    { path: '/admin/roles', label: 'Roles', icon: Shield },
-    { path: '/admin/permissions', label: 'Permissions Matrix', icon: Grid },
-    { path: '/admin/audit', label: 'Audit Logs', icon: ShieldAlert },
-  ];
-
-  const allNavItems = [...mainNavItems, ...(isAdmin ? adminNavItems : []), ...(isAdmin ? [{ path: '/settings', label: 'Settings', icon: Settings }] : [])];
   const currentNav = allNavItems.find(item => item.path === location.pathname);
-  const breadcrumb = currentNav ? currentNav.label : 'Overview';
+  const breadcrumb = currentNav ? currentNav.label : 'Dashboard';
 
   const knownApps = [
     'auth-service', 'frontend-service', 'gateway-service',
