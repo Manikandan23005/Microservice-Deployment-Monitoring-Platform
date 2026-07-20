@@ -37,7 +37,7 @@ async def get_cluster_metrics(
 @router.get("/metrics/range", response_model=BaseResponse)
 async def get_metrics_range(
     request: Request,
-    metric_type: str = Query("cpu", pattern="^(cpu|memory|network)$", description="Target metric telemetry type."),
+    metric_type: str = Query("cpu", pattern="^(cpu|memory|network|disk|requests|errors|latency|pods)$", description="Target metric telemetry type."),
     scope_mode: Optional[str] = Query("cluster"),
     namespace: Optional[str] = Query(None),
     app: Optional[str] = Query(None),

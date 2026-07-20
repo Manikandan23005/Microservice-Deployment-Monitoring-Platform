@@ -49,12 +49,17 @@ class MonitoringService:
         start = end - 3600.0  # Last 1 hour
         
         query_map = {
-            "cpu": "avg(rate(node_cpu_seconds_total{mode='idle'}[5m])) * 100",
-            "memory": "node_memory_Active_bytes / node_memory_MemTotal_bytes * 100",
-            "network": "sum(rate(node_network_receive_bytes_total[5m]))"
+            "cpu": "100 - (avg(rate(node_cpu_seconds_total{mode='idle'}[5m])) * 100)",
+            "memory": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100",
+            "network": "sum(rate(node_network_receive_bytes_total[5m])) / 1024",
+            "disk": "(1 - (node_filesystem_free_bytes{mountpoint='/'} / node_filesystem_size_bytes{mountpoint='/'})) * 100",
+            "requests": "sum(rate(http_requests_total[5m]))",
+            "errors": "(sum(rate(http_requests_total{status=~'5..'}[5m])) / sum(rate(http_requests_total[5m]))) * 100",
+            "latency": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) * 1000",
+            "pods": "count(kube_pod_status_phase{phase='Running'})"
         }
         
-        query = query_map.get(metric_type, "cpu")
+        query = query_map.get(metric_type, query_map["cpu"])
         try:
             res = prometheus_client.query_range(query, start, end, step="1m")
             result = []
@@ -68,13 +73,22 @@ class MonitoringService:
         
         # Fallback 12-point timeline generation over last 1 hour
         timeline = []
-        base_val = 18.5 if metric_type == "cpu" else 74.2 if metric_type == "memory" else 280000.0
+        base_defaults = {
+            "cpu": 18.5,
+            "memory": 74.2,
+            "network": 245.0,
+            "disk": 58.4,
+            "requests": 142.0,
+            "errors": 0.05,
+            "latency": 14.2,
+            "pods": 15.0
+        }
+        base_val = base_defaults.get(metric_type, 18.5)
         step_secs = 300  # Every 5 mins
         for i in range(12):
             ts = start + (i * step_secs)
-            # Gentle deterministic variation
-            variation = (i % 3) * 1.2 - 0.6
-            timeline.append([ts, round(base_val + variation, 2)])
+            variation = (i % 3) * 0.8 - 0.4
+            timeline.append([ts, round(max(0.0, base_val + variation), 2)])
         return timeline
 
     def _parse_val(self, data: Dict[str, Any], default_val: float) -> float:

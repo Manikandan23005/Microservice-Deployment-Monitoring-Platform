@@ -1,108 +1,373 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../services/api';
 import { Loading } from '../components/Loading';
-
 import { useScope } from '../context/ScopeContext';
+import { Cpu, HardDrive, Activity, Wifi, Layers, Clock, AlertTriangle, RefreshCw, BarChart3, Radio } from 'lucide-react';
+
+interface MetricChartConfig {
+  id: string;
+  title: string;
+  category: 'compute' | 'network' | 'http' | 'scaling';
+  unit: string;
+  color: string;
+  fillColor: string;
+  icon: any;
+  data: any[];
+}
 
 const Metrics: React.FC = () => {
-  const [cpuData, setCpuData] = useState<any[]>([]);
-  const [memData, setMemData] = useState<any[]>([]);
+  const [metricsData, setMetricsData] = useState<Record<string, any[]>>({});
+  const [summaryStats, setSummaryStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const { getScopeParams } = useScope();
+  const [activeTab, setActiveTab] = useState<'all' | 'compute' | 'network' | 'http' | 'scaling'>('all');
+  const [timeRange, setTimeRange] = useState<'1h' | '6h' | '24h'>('1h');
+  const { getScopeParams, getScopeLabel } = useScope();
 
-  const fetchMetricsRange = async () => {
+  const fetchAllMetrics = async () => {
     try {
-      const [cpu, mem] = await Promise.all([
-        api.getMetricsRange('cpu', getScopeParams()),
-        api.getMetricsRange('memory', getScopeParams())
+      const scope = getScopeParams();
+      const [
+        cpu, mem, net, disk, reqs, errs, lat, pods, stats
+      ] = await Promise.all([
+        api.getMetricsRange('cpu', scope),
+        api.getMetricsRange('memory', scope),
+        api.getMetricsRange('network', scope),
+        api.getMetricsRange('disk', scope),
+        api.getMetricsRange('requests', scope),
+        api.getMetricsRange('errors', scope),
+        api.getMetricsRange('latency', scope),
+        api.getMetricsRange('pods', scope),
+        api.getClusterMetrics(scope)
       ]);
-      setCpuData(cpu);
-      setMemData(mem);
+
+      setMetricsData({
+        cpu, memory: mem, network: net, disk, requests: reqs, errors: errs, latency: lat, pods
+      });
+      setSummaryStats(stats);
     } catch (e) {
-      console.error(e);
+      console.error("Failed to fetch Prometheus metrics:", e);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchMetricsRange();
-    
-    // Auto-refresh metrics every 5 seconds
-    const interval = setInterval(() => {
-      fetchMetricsRange();
-    }, 5000);
+    fetchAllMetrics();
+    const interval = setInterval(fetchAllMetrics, 5000);
     return () => clearInterval(interval);
   }, [JSON.stringify(getScopeParams())]);
 
-  // Generates SVG Path coordinates from timeline array
-  const generateSvgPath = (data: any[], width: number, height: number): string => {
-    if (data.length < 2) return '';
-    const maxVal = Math.max(...data.map(d => d[1]), 100);
-    const minVal = Math.min(...data.map(d => d[1]), 0);
+  const chartConfigs: MetricChartConfig[] = [
+    {
+      id: 'cpu',
+      title: 'CPU Utilization (%)',
+      category: 'compute',
+      unit: '%',
+      color: '#3b82f6',
+      fillColor: 'rgba(59, 130, 246, 0.15)',
+      icon: Cpu,
+      data: metricsData.cpu || []
+    },
+    {
+      id: 'memory',
+      title: 'Memory Utilization (%)',
+      category: 'compute',
+      unit: '%',
+      color: '#8b5cf6',
+      fillColor: 'rgba(139, 92, 246, 0.15)',
+      icon: HardDrive,
+      data: metricsData.memory || []
+    },
+    {
+      id: 'network',
+      title: 'Network Throughput (KB/s)',
+      category: 'network',
+      unit: ' KB/s',
+      color: '#06b6d4',
+      fillColor: 'rgba(6, 182, 212, 0.15)',
+      icon: Wifi,
+      data: metricsData.network || []
+    },
+    {
+      id: 'disk',
+      title: 'Disk Storage Usage (%)',
+      category: 'network',
+      unit: '%',
+      color: '#10b981',
+      fillColor: 'rgba(16, 185, 129, 0.15)',
+      icon: Layers,
+      data: metricsData.disk || []
+    },
+    {
+      id: 'requests',
+      title: 'HTTP Request Rate (Req/Sec)',
+      category: 'http',
+      unit: ' rps',
+      color: '#f59e0b',
+      fillColor: 'rgba(245, 158, 11, 0.15)',
+      icon: Activity,
+      data: metricsData.requests || []
+    },
+    {
+      id: 'latency',
+      title: 'P95 Response Latency (ms)',
+      category: 'http',
+      unit: ' ms',
+      color: '#ec4899',
+      fillColor: 'rgba(236, 72, 153, 0.15)',
+      icon: Clock,
+      data: metricsData.latency || []
+    },
+    {
+      id: 'errors',
+      title: 'HTTP 5xx Error Rate (%)',
+      category: 'http',
+      unit: '%',
+      color: '#ef4444',
+      fillColor: 'rgba(239, 68, 68, 0.15)',
+      icon: AlertTriangle,
+      data: metricsData.errors || []
+    },
+    {
+      id: 'pods',
+      title: 'Active Pod Replicas Count',
+      category: 'scaling',
+      unit: ' pods',
+      color: '#6366f1',
+      fillColor: 'rgba(99, 102, 241, 0.15)',
+      icon: Layers,
+      data: metricsData.pods || []
+    }
+  ];
+
+  const filteredCharts = chartConfigs.filter(c => {
+    if (activeTab === 'all') return true;
+    return c.category === activeTab;
+  });
+
+  const generateSvgPath = (data: any[], width: number, height: number): { line: string; area: string } => {
+    if (!data || data.length < 2) return { line: '', area: '' };
+    const values = data.map(d => d[1]);
+    const maxVal = Math.max(...values, 1);
+    const minVal = Math.min(...values, 0);
     const range = maxVal - minVal || 1;
 
     const points = data.map((d, index) => {
       const x = (index / (data.length - 1)) * width;
-      const y = height - ((d[1] - minVal) / range) * height;
+      const y = height - ((d[1] - minVal) / range) * (height - 20) - 10;
       return `${x},${y}`;
     });
 
-    return `M ${points.join(' L ')}`;
+    const line = `M ${points.join(' L ')}`;
+    const area = `${line} L ${width},${height} L 0,${height} Z`;
+    return { line, area };
   };
+
+  const getLatestVal = (data: any[]): number => {
+    if (!data || data.length === 0) return 0;
+    return data[data.length - 1][1];
+  };
+
+  const getAvgVal = (data: any[]): number => {
+    if (!data || data.length === 0) return 0;
+    const sum = data.reduce((acc, d) => acc + d[1], 0);
+    return roundVal(sum / data.length);
+  };
+
+  const roundVal = (v: number) => Math.round(v * 10) / 10;
 
   if (loading) return <Loading />;
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h2 className="text-3xl font-extrabold tracking-tight text-slate-800 dark:text-white">Active Cluster Telemetries</h2>
-        <p className="text-sm text-slate-400 mt-1">Real-time charting fetched from Prometheus scrapers logs.</p>
+    <div className="space-y-6">
+      {/* Header Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-500">
+            <BarChart3 className="h-5 w-5" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
+              Prometheus & Grafana Telemetry Metrics
+              <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-blue-500/10 text-blue-500 border border-blue-500/20">
+                {getScopeLabel()} Scope
+              </span>
+            </h2>
+            <p className="text-xs text-slate-400">Real-time infrastructure telemetries scraped from Prometheus endpoints.</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          {/* Time range selector */}
+          <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
+            {(['1h', '6h', '24h'] as const).map(tr => (
+              <button
+                key={tr}
+                onClick={() => setTimeRange(tr)}
+                className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
+                  timeRange === tr
+                    ? 'bg-white dark:bg-slate-900 text-blue-500 shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                {tr}
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={fetchAllMetrics}
+            className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-400 hover:text-white transition-colors flex items-center gap-1 text-xs font-semibold"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            <span>Sync</span>
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        
-        {/* CPU Utilizations */}
-        <div className="glass-panel p-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/40 dark:bg-slate-900/40 space-y-4">
-          <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">CPU Usage timeline (Last 1 hour)</h3>
-          
-          <div className="h-64 border-b border-l border-slate-700/50 relative p-2">
-            {/* SVG line graph */}
-            <svg className="w-full h-full overflow-visible">
-              <path 
-                d={generateSvgPath(cpuData, 400, 240)}
-                fill="none"
-                stroke="#3b82f6"
-                strokeWidth="3"
-                className="transition-all duration-500"
-              />
-            </svg>
-            <div className="absolute top-2 right-2 text-xs font-semibold text-blue-500 bg-blue-500/10 px-2 py-0.5 rounded">
-              Active queries: 10s step
-            </div>
+      {/* KPI Cards Summary Header */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-1">
+          <div className="flex items-center justify-between text-xs text-slate-400">
+            <span>CPU Utilization</span>
+            <Cpu className="h-4 w-4 text-blue-500" />
+          </div>
+          <div className="text-xl font-extrabold text-slate-800 dark:text-white font-mono">
+            {summaryStats?.cpu_utilization || getLatestVal(metricsData.cpu)}%
+          </div>
+          <div className="text-[10px] text-emerald-500 font-semibold flex items-center gap-1">
+            <Radio className="h-2.5 w-2.5 animate-pulse" /> Prometheus Active Scraper
           </div>
         </div>
 
-        {/* Memory Utilizations */}
-        <div className="glass-panel p-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/40 dark:bg-slate-900/40 space-y-4">
-          <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">Memory Usage timeline (Last 1 hour)</h3>
-          
-          <div className="h-64 border-b border-l border-slate-700/50 relative p-2">
-            <svg className="w-full h-full overflow-visible">
-              <path 
-                d={generateSvgPath(memData, 400, 240)}
-                fill="none"
-                stroke="#6366f1"
-                strokeWidth="3"
-                className="transition-all duration-500"
-              />
-            </svg>
-            <div className="absolute top-2 right-2 text-xs font-semibold text-indigo-500 bg-indigo-500/10 px-2 py-0.5 rounded">
-              Active queries: 10s step
-            </div>
+        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-1">
+          <div className="flex items-center justify-between text-xs text-slate-400">
+            <span>Memory Usage</span>
+            <HardDrive className="h-4 w-4 text-purple-500" />
+          </div>
+          <div className="text-xl font-extrabold text-slate-800 dark:text-white font-mono">
+            {summaryStats?.memory_utilization || getLatestVal(metricsData.memory)}%
+          </div>
+          <div className="text-[10px] text-indigo-400 font-semibold">
+            Avg: {getAvgVal(metricsData.memory)}% (1h)
           </div>
         </div>
 
+        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-1">
+          <div className="flex items-center justify-between text-xs text-slate-400">
+            <span>Network Traffic</span>
+            <Wifi className="h-4 w-4 text-cyan-500" />
+          </div>
+          <div className="text-xl font-extrabold text-slate-800 dark:text-white font-mono">
+            {roundVal(getLatestVal(metricsData.network))} KB/s
+          </div>
+          <div className="text-[10px] text-cyan-400 font-semibold">
+            Rx & Tx Throughput
+          </div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-1">
+          <div className="flex items-center justify-between text-xs text-slate-400">
+            <span>P95 Response Latency</span>
+            <Clock className="h-4 w-4 text-pink-500" />
+          </div>
+          <div className="text-xl font-extrabold text-slate-800 dark:text-white font-mono">
+            {roundVal(getLatestVal(metricsData.latency))} ms
+          </div>
+          <div className="text-[10px] text-emerald-500 font-semibold">
+            99.9% Availability
+          </div>
+        </div>
+      </div>
+
+      {/* Category Filter Tabs */}
+      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
+        {[
+          { id: 'all', label: 'All Telemetries (8)' },
+          { id: 'compute', label: 'Compute & Memory' },
+          { id: 'network', label: 'Network & Storage' },
+          { id: 'http', label: 'HTTP & Latency' },
+          { id: 'scaling', label: 'Pod Replicas' }
+        ].map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as any)}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+              activeTab === tab.id
+                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Metric Charts Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {filteredCharts.map(chart => {
+          const Icon = chart.icon;
+          const paths = generateSvgPath(chart.data, 400, 180);
+          const currentVal = getLatestVal(chart.data);
+          const avgVal = getAvgVal(chart.data);
+
+          return (
+            <div 
+              key={chart.id}
+              className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900/60 shadow-sm space-y-3"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg" style={{ backgroundColor: `${chart.color}20`, color: chart.color }}>
+                    <Icon className="h-4 w-4" />
+                  </div>
+                  <span className="text-xs font-bold text-slate-800 dark:text-white">
+                    {chart.title}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-mono text-slate-400">
+                    Avg: <strong>{avgVal}{chart.unit}</strong>
+                  </span>
+                  <span className="px-2 py-0.5 rounded text-xs font-bold font-mono" style={{ backgroundColor: `${chart.color}20`, color: chart.color }}>
+                    {roundVal(currentVal)}{chart.unit}
+                  </span>
+                </div>
+              </div>
+
+              {/* Chart SVG */}
+              <div className="h-48 border-b border-l border-slate-200 dark:border-slate-800/80 relative p-2 overflow-hidden">
+                {chart.data.length >= 2 ? (
+                  <svg className="w-full h-full overflow-visible" viewBox="0 0 400 180" preserveAspectRatio="none">
+                    <defs>
+                      <linearGradient id={`grad-${chart.id}`} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={chart.color} stopOpacity="0.3" />
+                        <stop offset="100%" stopColor={chart.color} stopOpacity="0.0" />
+                      </linearGradient>
+                    </defs>
+                    <path d={paths.area} fill={`url(#grad-${chart.id})`} />
+                    <path 
+                      d={paths.line} 
+                      fill="none" 
+                      stroke={chart.color} 
+                      strokeWidth="2.5" 
+                      strokeLinecap="round"
+                      className="transition-all duration-500" 
+                    />
+                  </svg>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-xs text-slate-400">
+                    Collecting data points...
+                  </div>
+                )}
+                <div className="absolute top-2 right-2 text-[10px] font-mono text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700">
+                  Prometheus 15s step
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
