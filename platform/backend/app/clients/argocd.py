@@ -71,9 +71,10 @@ class ArgoCDClient:
             logger.error(f"Failed to list ArgoCD applications: {str(e)}")
             raise ArgoCDConnectionException(f"ArgoCD server connection failed: {str(e)}")
 
-    def sync_application(self, app_name: str) -> Dict[str, Any]:
-        self._ensure_token()
-        url = f"{self.base_url}/applications/{app_name}/sync"
+    def sync_application(self, app_name: str, cluster_id: Optional[str] = None) -> Dict[str, Any]:
+        self._ensure_token(cluster_id)
+        base_url = self._get_base_url(cluster_id)
+        url = f"{base_url}/applications/{app_name}/sync"
         try:
             with httpx.Client(headers=self.headers, verify=False, timeout=5.0) as client:
                 response = client.post(url, json={})
@@ -89,9 +90,10 @@ class ArgoCDClient:
             logger.error(f"Failed to sync ArgoCD application {app_name}: {str(e)}")
             raise ArgoCDConnectionException(f"ArgoCD connection error: {str(e)}")
 
-    def refresh_application(self, app_name: str) -> Dict[str, Any]:
-        self._ensure_token()
-        url = f"{self.base_url}/applications/{app_name}?refresh=hard"
+    def refresh_application(self, app_name: str, cluster_id: Optional[str] = None) -> Dict[str, Any]:
+        self._ensure_token(cluster_id)
+        base_url = self._get_base_url(cluster_id)
+        url = f"{base_url}/applications/{app_name}?refresh=hard"
         try:
             with httpx.Client(headers=self.headers, verify=False, timeout=5.0) as client:
                 response = client.get(url)
@@ -102,9 +104,10 @@ class ArgoCDClient:
             logger.error(f"Failed to refresh ArgoCD application {app_name}: {str(e)}")
             raise ArgoCDConnectionException(f"ArgoCD connection error: {str(e)}")
 
-    def rollback_application(self, app_name: str, revision: int) -> Dict[str, Any]:
-        self._ensure_token()
-        url = f"{self.base_url}/applications/{app_name}/rollback"
+    def rollback_application(self, app_name: str, revision: int, cluster_id: Optional[str] = None) -> Dict[str, Any]:
+        self._ensure_token(cluster_id)
+        base_url = self._get_base_url(cluster_id)
+        url = f"{base_url}/applications/{app_name}/rollback"
         body = {"revision": revision}
         try:
             with httpx.Client(headers=self.headers, verify=False, timeout=2.0) as client:
@@ -116,9 +119,10 @@ class ArgoCDClient:
             logger.error(f"Failed to rollback ArgoCD application {app_name}: {str(e)}")
             raise ArgoCDConnectionException(f"ArgoCD connection error: {str(e)}")
 
-    def get_application(self, app_name: str) -> Dict[str, Any]:
-        self._ensure_token()
-        url = f"{self.base_url}/applications/{app_name}"
+    def get_application(self, app_name: str, cluster_id: Optional[str] = None) -> Dict[str, Any]:
+        self._ensure_token(cluster_id)
+        base_url = self._get_base_url(cluster_id)
+        url = f"{base_url}/applications/{app_name}"
         try:
             with httpx.Client(headers=self.headers, verify=False, timeout=2.0) as client:
                 response = client.get(url)
@@ -128,9 +132,11 @@ class ArgoCDClient:
         except Exception as e:
             logger.error(f"Failed to fetch ArgoCD application {app_name} details: {str(e)}")
             raise ArgoCDConnectionException(f"ArgoCD connection error: {str(e)}")
-    def delete_application(self, app_name: str, cascade: bool = False) -> Dict[str, Any]:
-        self._ensure_token()
-        url = f"{self.base_url}/applications/{app_name}?cascade={str(cascade).lower()}"
+
+    def delete_application(self, app_name: str, cascade: bool = False, cluster_id: Optional[str] = None) -> Dict[str, Any]:
+        self._ensure_token(cluster_id)
+        base_url = self._get_base_url(cluster_id)
+        url = f"{base_url}/applications/{app_name}?cascade={str(cascade).lower()}"
         try:
             with httpx.Client(headers=self.headers, verify=False, timeout=5.0) as client:
                 response = client.delete(url)
@@ -142,22 +148,23 @@ class ArgoCDClient:
             # Fallback using K8s Custom Objects API if ArgoCD API token is unavailable
             try:
                 from app.clients.kubernetes import k8s_client
-                if k8s_client._initialized:
-                    from kubernetes import client as k8s_sdk
-                    custom_api = k8s_sdk.CustomObjectsApi()
-                    custom_api.delete_namespaced_custom_object(
-                        group="argoproj.io",
-                        version="v1alpha1",
-                        namespace="argocd",
-                        plural="applications",
-                        name=app_name
-                    )
-                    return {"success": True, "message": f"ArgoCD Application '{app_name}' disconnected via K8s CRD API."}
+                clients = k8s_client.get_clients(cluster_id)
+                v1 = clients.get("v1") if isinstance(clients, dict) else clients[0]
+                from kubernetes import client as k8s_sdk
+                custom_api = k8s_sdk.CustomObjectsApi(v1.api_client)
+                custom_api.delete_namespaced_custom_object(
+                    group="argoproj.io",
+                    version="v1alpha1",
+                    namespace="argocd",
+                    plural="applications",
+                    name=app_name
+                )
+                return {"success": True, "message": f"ArgoCD Application '{app_name}' disconnected via K8s CRD API."}
             except Exception as inner_e:
                 logger.error(f"Fallback CRD deletion also failed: {str(inner_e)}")
             raise ArgoCDConnectionException(f"ArgoCD connection error: {str(e)}")
 
-    def reconnect_application(self, app_name: str, mode: str = "restore", namespace: str = "devops-nexus-prod") -> Dict[str, Any]:
+    def reconnect_application(self, app_name: str, mode: str = "restore", namespace: str = "devops-nexus-prod", cluster_id: Optional[str] = None) -> Dict[str, Any]:
         """Reconnects a Kubernetes deployment back to ArgoCD GitOps management."""
         clean_prefix = app_name.replace("-service", "").replace("-prod", "").replace("-dev", "").lower()
         target_app_name = f"{clean_prefix}-prod" if not app_name.endswith("-prod") else app_name
@@ -192,17 +199,24 @@ class ArgoCDClient:
                         "selfHeal": True,
                         "prune": False
                     }
-                }
+                },
+                "ignoreDifferences": [
+                    {
+                        "group": "apps",
+                        "kind": "Deployment",
+                        "jsonPointers": ["/spec/replicas"]
+                    }
+                ]
             }
         }
 
         # Step 1: Create/Apply ArgoCD Application CRD
         from app.clients.kubernetes import k8s_client
-        if not k8s_client._initialized:
-            k8s_client.initialize()
+        clients = k8s_client.get_clients(cluster_id)
+        v1 = clients.get("v1") if isinstance(clients, dict) else clients[0]
         from kubernetes import client as k8s_sdk
 
-        custom_api = k8s_sdk.CustomObjectsApi()
+        custom_api = k8s_sdk.CustomObjectsApi(v1.api_client)
         try:
             custom_api.create_namespaced_custom_object(
                 group="argoproj.io",
@@ -229,7 +243,7 @@ class ArgoCDClient:
 
         # Step 2: Trigger Sync
         try:
-            self.refresh_application(target_app_name)
+            self.refresh_application(target_app_name, cluster_id=cluster_id)
         except Exception as e:
             logger.warning(f"Refresh failed during reconnect: {str(e)}")
 

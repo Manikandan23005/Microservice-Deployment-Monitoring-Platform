@@ -42,6 +42,9 @@ async def get_github_repo_details(
     except DevOpsNexusException as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
+def _get_cluster_id(request: Request) -> Optional[str]:
+    return request.headers.get("X-Cluster-ID") or request.query_params.get("cluster_id")
+
 from app.services.scope_engine import scope_engine
 
 @router.get("/argocd/applications", response_model=BaseResponse)
@@ -54,9 +57,10 @@ async def list_argocd_applications(
 ):
     """Lists applications synchronizations status registered in ArgoCD."""
     request_id = getattr(request.state, "request_id", None)
+    cluster_id = _get_cluster_id(request)
     try:
         scope = scope_engine.resolve_scope(scope_mode, namespace, app, domain)
-        raw_apps = argocd_service.list_applications()
+        raw_apps = argocd_service.list_applications(cluster_id=cluster_id)
         data = scope_engine.filter_argocd_apps(raw_apps, scope)
         return BaseResponse(success=True, data=data, request_id=request_id)
     except DevOpsNexusException as e:
@@ -72,12 +76,13 @@ async def sync_argocd_application(
 ):
     """Triggers sync deployment inside ArgoCD."""
     request_id = getattr(request.state, "request_id", None)
+    cluster_id = _get_cluster_id(request)
     user_dict = get_current_user(request)
     username = user_dict.get("username") or user_dict.get("sub") or "viewer"
     
     authz_engine.authorize(username, "gitops", "sync_application", application=app_name)
     try:
-        data = argocd_service.sync_application(app_name)
+        data = argocd_service.sync_application(app_name, cluster_id=cluster_id)
         audit_service.log_action(
             username=username,
             role_name=user_dict.get("role", "Viewer"),
@@ -97,8 +102,9 @@ async def refresh_argocd_application(
 ):
     """Triggers refresh manifests check in ArgoCD."""
     request_id = getattr(request.state, "request_id", None)
+    cluster_id = _get_cluster_id(request)
     try:
-        data = argocd_service.refresh_application(app_name)
+        data = argocd_service.refresh_application(app_name, cluster_id=cluster_id)
         return BaseResponse(success=True, data=data, request_id=request_id)
     except DevOpsNexusException as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
@@ -111,12 +117,13 @@ async def rollback_argocd_application(
 ):
     """Triggers application rollback to a specified deployment revision."""
     request_id = getattr(request.state, "request_id", None)
+    cluster_id = _get_cluster_id(request)
     user_dict = get_current_user(request)
     username = user_dict.get("username", "viewer")
 
     authz_engine.authorize(username, "gitops", "rollback_application", application=app_name)
     try:
-        data = argocd_service.rollback_application(app_name, revision)
+        data = argocd_service.rollback_application(app_name, revision, cluster_id=cluster_id)
         audit_service.log_action(
             username=username,
             role_name=user_dict.get("role", "Viewer"),
@@ -137,8 +144,9 @@ async def get_argocd_application_history(
 ):
     """Retrieves list of deploy records and revisions tags from ArgoCD."""
     request_id = getattr(request.state, "request_id", None)
+    cluster_id = _get_cluster_id(request)
     try:
-        data = argocd_service.get_application_history(app_name)
+        data = argocd_service.get_application_history(app_name, cluster_id=cluster_id)
         return BaseResponse(success=True, data=data, request_id=request_id)
     except DevOpsNexusException as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
@@ -150,13 +158,14 @@ async def disconnect_argocd_application(
 ):
     """Safely disconnects an ArgoCD application by removing tracking CRD without deleting live workloads."""
     request_id = getattr(request.state, "request_id", None)
+    cluster_id = _get_cluster_id(request)
     user_dict = get_current_user(request)
     username = user_dict.get("username", "viewer")
 
     # Requires Administrator role for GitOps disconnection
     authz_engine.authorize(username, "gitops", "disconnect_gitops", application=app_name)
     try:
-        data = argocd_service.delete_application(app_name, cascade=False)
+        data = argocd_service.delete_application(app_name, cascade=False, cluster_id=cluster_id)
         audit_service.log_action(
             username=username,
             role_name=user_dict.get("role", "Viewer"),
@@ -182,6 +191,7 @@ async def reconnect_argocd_application(
 ):
     """Reconnects a Kubernetes deployment back to ArgoCD GitOps management under adopt or restore mode."""
     request_id = getattr(request.state, "request_id", None)
+    cluster_id = _get_cluster_id(request)
     user_dict = get_current_user(request)
     username = user_dict.get("username") or user_dict.get("sub") or "viewer"
 
@@ -191,7 +201,8 @@ async def reconnect_argocd_application(
         data = argocd_service.reconnect_application(
             app_name=app_name,
             mode=body.mode,
-            namespace=body.namespace or "devops-nexus-prod"
+            namespace=body.namespace or "devops-nexus-prod",
+            cluster_id=cluster_id
         )
         audit_service.log_action(
             username=username,

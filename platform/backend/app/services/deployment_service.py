@@ -87,17 +87,43 @@ class DeploymentService:
                 return d.get("gitopsManaged", False)
         return False
 
-    def restart_deployment(self, namespace: str, name: str) -> Dict[str, Any]:
-        target_name = self._resolve_k8s_name(namespace, name)
-        k8s_client.restart_deployment(namespace, target_name)
+    def restart_deployment(self, namespace: str, name: str, cluster_id: Optional[str] = None) -> Dict[str, Any]:
+        target_name = self._resolve_k8s_name(namespace, name, cluster_id=cluster_id)
+        k8s_client.restart_deployment(namespace, target_name, cluster_id=cluster_id)
         return {
             "success": True,
             "message": f"Rollout restart triggered successfully for deployment {target_name}."
         }
 
-    def scale_deployment(self, namespace: str, name: str, replicas: int) -> Dict[str, Any]:
-        target_name = self._resolve_k8s_name(namespace, name)
-        k8s_client.scale_deployment(namespace, target_name, replicas)
+    def scale_deployment(self, namespace: str, name: str, replicas: int, cluster_id: Optional[str] = None) -> Dict[str, Any]:
+        target_name = self._resolve_k8s_name(namespace, name, cluster_id=cluster_id)
+
+        # Patch ArgoCD application ignoreDifferences so ArgoCD selfHeal does not revert scaling
+        try:
+            from app.services.argocd_service import argocd_service
+            apps = argocd_service.list_applications(cluster_id=cluster_id)
+            clean_prefix = name.replace("-service", "").replace("-prod", "").replace("-dev", "").lower()
+            matched_app = None
+            for app in apps:
+                app_name = app.get("name", "")
+                if app_name == name or app_name == f"{clean_prefix}-prod" or clean_prefix in app_name:
+                    matched_app = app_name
+                    break
+            
+            if matched_app:
+                clients = k8s_client.get_clients(cluster_id)
+                v1 = clients.get("v1") if isinstance(clients, dict) else clients[0]
+                from kubernetes import client as k8s_sdk
+                custom_api = k8s_sdk.CustomObjectsApi(v1.api_client)
+                custom_api.patch_namespaced_custom_object(
+                    "argoproj.io", "v1alpha1", "argocd", "applications", matched_app,
+                    {"spec": {"ignoreDifferences": [{"group": "apps", "kind": "Deployment", "jsonPointers": ["/spec/replicas"]}]}}
+                )
+                logger.info(f"Patched ignoreDifferences for ArgoCD app '{matched_app}' during scaling.")
+        except Exception as e:
+            logger.warning(f"Could not patch ArgoCD ignoreDifferences during scaling: {str(e)}")
+
+        k8s_client.scale_deployment(namespace, target_name, replicas, cluster_id=cluster_id)
         return {
             "success": True,
             "message": f"Successfully scaled deployment {target_name} to {replicas} replicas."

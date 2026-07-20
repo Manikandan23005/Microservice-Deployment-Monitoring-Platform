@@ -10,7 +10,7 @@ class ArgoCDService:
     def list_applications(self, cluster_id: Optional[str] = None) -> List[Dict[str, Any]]:
         """Lists active ArgoCD synced apps with fallback profiles."""
         try:
-            apps = argocd_client.list_applications()
+            apps = argocd_client.list_applications(cluster_id=cluster_id)
             result = []
             for app in apps:
                 status = app.get("status", {})
@@ -36,28 +36,28 @@ class ArgoCDService:
             logger.info("ArgoCD connection failed. Returning empty applications list.")
             return []
 
-    def sync_application(self, app_name: str) -> Dict[str, Any]:
+    def sync_application(self, app_name: str, cluster_id: Optional[str] = None) -> Dict[str, Any]:
         try:
-            return argocd_client.sync_application(app_name)
+            return argocd_client.sync_application(app_name, cluster_id=cluster_id)
         except ArgoCDConnectionException as e:
             raise e
 
-    def refresh_application(self, app_name: str) -> Dict[str, Any]:
+    def refresh_application(self, app_name: str, cluster_id: Optional[str] = None) -> Dict[str, Any]:
         try:
-            return argocd_client.refresh_application(app_name)
+            return argocd_client.refresh_application(app_name, cluster_id=cluster_id)
         except ArgoCDConnectionException as e:
             raise e
 
-    def rollback_application(self, app_name: str, revision: int) -> Dict[str, Any]:
+    def rollback_application(self, app_name: str, revision: int, cluster_id: Optional[str] = None) -> Dict[str, Any]:
         try:
-            return argocd_client.rollback_application(app_name, revision)
+            return argocd_client.rollback_application(app_name, revision, cluster_id=cluster_id)
         except ArgoCDConnectionException as e:
             raise e
 
-    def get_application_history(self, app_name: str) -> List[Dict[str, Any]]:
+    def get_application_history(self, app_name: str, cluster_id: Optional[str] = None) -> List[Dict[str, Any]]:
         """Retrieves sync logs and historical revisions metadata."""
         try:
-            app = argocd_client.get_application(app_name)
+            app = argocd_client.get_application(app_name, cluster_id=cluster_id)
             history = app.get("status", {}).get("history", [])
             result = []
             for item in history:
@@ -71,15 +71,15 @@ class ArgoCDService:
             logger.info(f"ArgoCD offline. Returning empty deployment histories list for {app_name}.")
             return []
 
-    def delete_application(self, app_name: str, cascade: bool = False) -> Dict[str, Any]:
+    def delete_application(self, app_name: str, cascade: bool = False, cluster_id: Optional[str] = None) -> Dict[str, Any]:
         try:
-            return argocd_client.delete_application(app_name, cascade=cascade)
+            return argocd_client.delete_application(app_name, cascade=cascade, cluster_id=cluster_id)
         except ArgoCDConnectionException as e:
             raise e
 
-    def reconnect_application(self, app_name: str, mode: str = "restore", namespace: str = "devops-nexus-prod") -> Dict[str, Any]:
+    def reconnect_application(self, app_name: str, mode: str = "restore", namespace: str = "devops-nexus-prod", cluster_id: Optional[str] = None) -> Dict[str, Any]:
         try:
-            return argocd_client.reconnect_application(app_name, mode=mode, namespace=namespace)
+            return argocd_client.reconnect_application(app_name, mode=mode, namespace=namespace, cluster_id=cluster_id)
         except ArgoCDConnectionException as e:
             raise e
 
