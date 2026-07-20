@@ -180,8 +180,19 @@ const Deployments: React.FC = () => {
       accessor: (item: DeploymentItem) => (
         <div className="flex items-center justify-end gap-2 flex-wrap">
           {item.gitopsManaged ? (
-            // --- GITOPS MANAGED WORKLOAD OPERATIONS ---
             <>
+              {/* Runtime Operations: Scale Replicas */}
+              {isDevOpsOrAdmin && (
+                <button
+                  onClick={() => { setModalTarget(item); setModalAction('scale'); }}
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 hover:bg-indigo-500/20 text-xs font-bold cursor-pointer"
+                  title="Scale Deployment Replicas (Upscale / Downscale)"
+                >
+                  <Scale className="h-3 w-3" />
+                  Scale
+                </button>
+              )}
+
               {/* Runtime Operations: Restart Rollout */}
               {isDevOpsOrAdmin && (
                 <button

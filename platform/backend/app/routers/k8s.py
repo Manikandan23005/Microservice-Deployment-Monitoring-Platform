@@ -194,20 +194,15 @@ async def scale_deployment(
     username = user_dict.get("username") or user_dict.get("sub") or "viewer"
 
     authz_engine.authorize(username, "deployments", "scale_deployment", namespace=namespace, application=name)
-    
-    # GitOps Conflict Protection
-    if deployment_service.check_gitops_managed(namespace, name):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"Operation rejected: Deployment '{name}' is managed by ArgoCD. Direct scaling violates GitOps reconciliation. Disconnect from GitOps first."
-        )
+    is_gitops = deployment_service.check_gitops_managed(namespace, name)
 
     try:
         data = deployment_service.scale_deployment(namespace, name, body.replicas)
+        action_name = "scale_gitops_deployment" if is_gitops else "scale_deployment"
         audit_service.log_action(
             username=username,
             role_name=user_dict.get("role", "Viewer"),
-            action="scale_deployment",
+            action=action_name,
             target_resource=f"deployment/{name}",
             namespace=namespace,
             application=name,
