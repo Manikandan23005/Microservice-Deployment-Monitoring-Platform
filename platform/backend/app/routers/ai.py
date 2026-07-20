@@ -52,16 +52,25 @@ async def chat_troubleshoot_stream(
     prompt: str = Query(..., description="The user query or context to analyze."),
     provider: Optional[str] = Query(None, description="AI completions client provider."),
     session_id: Optional[str] = Query(None, description="Conversational session tracking identifier."),
-    scope_mode: Optional[str] = Query("cluster"),
+    scope_mode: Optional[str] = Query(None),
+    mode: Optional[str] = Query(None),
+    scope_namespace: Optional[str] = Query(None),
     namespace: Optional[str] = Query(None),
+    scope_app: Optional[str] = Query(None),
     app: Optional[str] = Query(None),
+    scope_domain: Optional[str] = Query(None),
     domain: Optional[str] = Query(None)
 ):
     """Streams AIOps agent execution phases and final diagnostics payload using Server-Sent Events (SSE)."""
     user_dict = get_current_user(request)
     username = user_dict.get("username", "viewer")
 
-    scope = scope_engine.resolve_scope(scope_mode, namespace, app, domain)
+    active_mode = scope_mode or mode or "cluster"
+    active_ns = scope_namespace or namespace or "devops-nexus-prod"
+    active_app = scope_app or app
+    active_domain = scope_domain or domain
+
+    scope = scope_engine.resolve_scope(active_mode, active_ns, active_app, active_domain)
     authz_engine.authorize(username, "ai", "ai_chat", namespace=scope.namespace, application=scope.application)
     
     audit_service.log_action(
@@ -84,8 +93,10 @@ async def chat_troubleshoot_stream(
             yield f"event: progress\ndata: {json.dumps({'status': f'Classified Intent: {intent}'})}\n\n"
             await asyncio.sleep(0.2)
 
+            target_name = scope.application if scope.mode.value == "app" else None
+
             # Step 2: Investigation Planner steps
-            plan_steps = ai_agent_pipeline.planner.create_plan(intent, prompt, app)
+            plan_steps = ai_agent_pipeline.planner.create_plan(intent, prompt, target_name)
             for st in plan_steps[:5]:
                 yield f"event: progress\ndata: {json.dumps({'status': f'Running: {st}'})}\n\n"
                 await asyncio.sleep(0.25)
@@ -94,7 +105,12 @@ async def chat_troubleshoot_stream(
             loop = asyncio.get_event_loop()
             res = await loop.run_in_executor(
                 None,
-                lambda: ai_agent_pipeline.run_pipeline(prompt, app, scope.namespace)
+                lambda: ai_agent_pipeline.run_pipeline(
+                    prompt=prompt,
+                    resource_name=target_name,
+                    namespace=scope.namespace,
+                    scope=scope
+                )
             )
 
             # Format to Base UI Response

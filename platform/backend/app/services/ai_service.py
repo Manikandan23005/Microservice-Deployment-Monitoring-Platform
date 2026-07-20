@@ -29,7 +29,8 @@ class AIService:
         res = ai_agent_pipeline.run_pipeline(
             prompt=prompt,
             resource_name=current_scope.application,
-            namespace=current_scope.namespace or "devops-nexus-prod"
+            namespace=current_scope.namespace or "devops-nexus-prod",
+            scope=current_scope
         )
 
         parsed_json = {
