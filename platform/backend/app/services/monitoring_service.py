@@ -77,13 +77,82 @@ class MonitoringService:
             timeline.append([ts, round(base_val + variation, 2)])
         return timeline
 
-    def _parse_val(self, response: Dict[str, Any], fallback: float) -> float:
+    def _parse_val(self, data: Dict[str, Any], default_val: float) -> float:
         try:
-            results = response.get("data", {}).get("result", [])
-            if results:
-                return float(results[0].get("value", [])[1])
+            res = data.get("data", {}).get("result", [])
+            if res and len(res) > 0:
+                val = res[0].get("value", [0, 0])[1]
+                return round(float(val), 2)
         except Exception:
             pass
-        return fallback
+        return default_val
+
+    def get_active_alerts(self, scope: Any = None) -> List[Dict[str, Any]]:
+        """Queries active Prometheus AlertManager alerts & synthesizes cluster workload alerts."""
+        alerts = []
+
+        # 1. Fetch Prometheus Firing & Pending Alerts
+        try:
+            p_data = prometheus_client.get_alerts()
+            p_alerts = p_data.get("data", {}).get("alerts", [])
+            for idx, a in enumerate(p_alerts):
+                labels = a.get("labels", {})
+                annotations = a.get("annotations", {})
+                severity = labels.get("severity", "warning").lower()
+                state = a.get("state", "firing").lower()
+                
+                alerts.append({
+                    "id": f"prom-alert-{idx}-{labels.get('alertname', 'Alert')}",
+                    "severity": "critical" if severity in ["critical", "error"] else ("warning" if severity in ["warning", "high"] else "info"),
+                    "message": annotations.get("summary") or annotations.get("description") or labels.get("alertname") or "Prometheus Firing Alert",
+                    "service": labels.get("job") or labels.get("service") or labels.get("pod") or labels.get("instance") or "cluster",
+                    "timestamp": a.get("activeAt", time.strftime("%Y-%m-%dT%H:%M:%SZ")),
+                    "state": state,
+                    "alertname": labels.get("alertname", "Alert")
+                })
+        except Exception as e:
+            logger.warning(f"Prometheus alerts query warning: {str(e)}")
+
+        # 2. Add Cluster Workload Alerts (Container Restarts, Failing Pods)
+        try:
+            pods = pod_service.list_pods()
+            for p in pods:
+                restarts = p.get("restarts", 0)
+                status = p.get("status", "Running")
+                p_name = p.get("name", "pod")
+                ns = p.get("namespace", "devops-nexus-prod")
+                
+                scope_mode = getattr(scope, "mode", None)
+                mode_val = getattr(scope_mode, "value", str(scope_mode or "")) if scope_mode else "cluster"
+
+                if scope and mode_val == "namespace" and ns != scope.namespace:
+                    continue
+                if scope and mode_val == "app" and scope.application and scope.application.lower() not in p_name.lower():
+                    continue
+
+                if status in ["CrashLoopBackOff", "Error", "Failed"]:
+                    alerts.append({
+                        "id": f"k8s-pod-crash-{p_name}",
+                        "severity": "critical",
+                        "message": f"Pod '{p_name}' is in '{status}' phase in namespace '{ns}'.",
+                        "service": p_name.split("-")[0] + "-service",
+                        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                        "state": "firing",
+                        "alertname": "PodCrashLooping"
+                    })
+                elif restarts > 0:
+                    alerts.append({
+                        "id": f"k8s-pod-restart-{p_name}",
+                        "severity": "warning",
+                        "message": f"Pod '{p_name}' has restarted {restarts} times.",
+                        "service": p_name.split("-")[0] + "-service",
+                        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                        "state": "firing",
+                        "alertname": "PodRestartThresholdExceeded"
+                    })
+        except Exception as e:
+            logger.warning(f"Pod alerts calculation warning: {str(e)}")
+
+        return alerts
 
 monitoring_service = MonitoringService()

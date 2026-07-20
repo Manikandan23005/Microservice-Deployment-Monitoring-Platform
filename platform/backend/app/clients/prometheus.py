@@ -57,7 +57,25 @@ class PrometheusClient:
                     if response.status_code == 200:
                         return response.json()
             except Exception as e:
-                logger.error(f"Prometheus range query failed after auto-repair: {str(e)}")
-            raise TelemetryFetchException("Prometheus server unavailable.")
+                raise TelemetryFetchException("Prometheus server unavailable.")
+
+    def get_alerts(self) -> Dict[str, Any]:
+        """Fetches active firing & pending alerts from Prometheus AlertManager/Alerts API."""
+        url = f"{self.base_url}/api/v1/alerts"
+        try:
+            with httpx.Client(timeout=2.0) as client:
+                response = client.get(url)
+                if response.status_code == 200:
+                    return response.json()
+        except Exception:
+            port_supervisor.ensure_telemetry_ports()
+            try:
+                with httpx.Client(timeout=2.0) as client:
+                    response = client.get(url)
+                    if response.status_code == 200:
+                        return response.json()
+            except Exception as e:
+                logger.error(f"Prometheus alerts fetch failed after auto-repair: {str(e)}")
+        return {"status": "success", "data": {"alerts": []}}
 
 prometheus_client = PrometheusClient()

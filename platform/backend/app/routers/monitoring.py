@@ -82,3 +82,20 @@ async def get_platform_metrics(request: Request):
         data=observability_metrics.get_summary(),
         request_id=request_id
     )
+
+@router.get("/alerts", response_model=BaseResponse)
+async def get_alerts(
+    request: Request,
+    scope_mode: Optional[str] = Query("cluster"),
+    namespace: Optional[str] = Query(None),
+    app: Optional[str] = Query(None),
+    domain: Optional[str] = Query(None)
+):
+    """Retrieves active Prometheus AlertManager & Kubernetes workload firing alerts."""
+    request_id = getattr(request.state, "request_id", None)
+    try:
+        scope = scope_engine.resolve_scope(scope_mode, namespace, app, domain)
+        alerts = monitoring_service.get_active_alerts(scope)
+        return BaseResponse(success=True, data=alerts, request_id=request_id)
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))

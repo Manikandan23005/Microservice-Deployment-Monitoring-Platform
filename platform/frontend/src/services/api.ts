@@ -236,8 +236,16 @@ export const api = {
     return [];
   },
 
-  getAlerts: async (): Promise<AlertInfo[]> => {
-    // Return empty active alerts for empty cluster status
+  getAlerts: async (scopeParams?: Record<string, string>): Promise<AlertInfo[]> => {
+    try {
+      const params = new URLSearchParams(scopeParams || {});
+      const response = await apiClient.get(`/api/v1/monitoring/alerts?${params.toString()}`);
+      if (response.data && response.data.success) {
+        return response.data.data;
+      }
+    } catch (e) {
+      console.warn("Failed to fetch AlertManager & workload alerts:", e);
+    }
     return [];
   },
 
