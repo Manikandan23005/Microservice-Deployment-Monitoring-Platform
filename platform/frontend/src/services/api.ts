@@ -317,9 +317,9 @@ export const api = {
     try {
       const response = await apiClient.post(`/api/v1/k8s/deployments/${namespace}/${name}/restart`);
       return !!(response.data && response.data.success);
-    } catch (e) {
+    } catch (e: any) {
       console.error(`Failed to restart deployment ${name}:`, e);
-      return false;
+      throw new Error(e.response?.data?.error?.message || e.message || 'Restart failed');
     }
   },
 
@@ -327,9 +327,49 @@ export const api = {
     try {
       const response = await apiClient.post(`/api/v1/k8s/deployments/${namespace}/${name}/scale`, { replicas });
       return !!(response.data && response.data.success);
-    } catch (e) {
+    } catch (e: any) {
       console.error(`Failed to scale deployment ${name} to ${replicas}:`, e);
-      return false;
+      throw new Error(e.response?.data?.error?.message || e.message || 'Scaling failed');
+    }
+  },
+
+  rollbackDeployment: async (namespace: string, name: string): Promise<boolean> => {
+    try {
+      const response = await apiClient.post(`/api/v1/k8s/deployments/${namespace}/${name}/rollback`);
+      return !!(response.data && response.data.success);
+    } catch (e: any) {
+      console.error(`Failed to rollback deployment ${name}:`, e);
+      throw new Error(e.response?.data?.error?.message || e.message || 'Rollback failed');
+    }
+  },
+
+  deleteDeployment: async (namespace: string, name: string): Promise<boolean> => {
+    try {
+      const response = await apiClient.delete(`/api/v1/k8s/deployments/${namespace}/${name}`);
+      return !!(response.data && response.data.success);
+    } catch (e: any) {
+      console.error(`Failed to delete deployment ${name}:`, e);
+      throw new Error(e.response?.data?.error?.message || e.message || 'Delete deployment failed');
+    }
+  },
+
+  restartPod: async (namespace: string, podName: string): Promise<boolean> => {
+    try {
+      const response = await apiClient.post(`/api/v1/k8s/pods/${namespace}/${podName}/restart`);
+      return !!(response.data && response.data.success);
+    } catch (e: any) {
+      console.error(`Failed to restart pod ${podName}:`, e);
+      throw new Error(e.response?.data?.error?.message || e.message || 'Restart pod failed');
+    }
+  },
+
+  deletePod: async (namespace: string, podName: string): Promise<boolean> => {
+    try {
+      const response = await apiClient.delete(`/api/v1/k8s/pods/${namespace}/${podName}`);
+      return !!(response.data && response.data.success);
+    } catch (e: any) {
+      console.error(`Failed to delete pod ${podName}:`, e);
+      throw new Error(e.response?.data?.error?.message || e.message || 'Delete pod failed');
     }
   },
 

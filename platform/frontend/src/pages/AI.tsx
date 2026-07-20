@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
 import { api } from '../services/api';
 import { AIResponse } from '../types';
-import { Bot, Send, Sparkles, CheckSquare, AlertTriangle, ShieldCheck, Play } from 'lucide-react';
+import { Bot, Send, Sparkles, CheckSquare, ShieldCheck, Play } from 'lucide-react';
+import { useScope } from '../context/ScopeContext';
+import { ActionConfirmationModal } from '../components/ActionConfirmationModal';
 
 interface ChatMessage {
   sender: 'user' | 'ai';
   text?: string;
   structured?: AIResponse;
 }
-
-import { useScope } from '../context/ScopeContext';
 
 const AI: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -24,15 +24,23 @@ const AI: React.FC = () => {
   const [progressStatus, setProgressStatus] = useState<string>('');
   
   const { getScopeParams, getScopeLabel } = useScope();
-  
-  // Persistent session tracking
   const [sessionId] = useState(() => Math.random().toString(36).substring(7));
-  
-  // Action status dictionary tracker
   const [actionStates, setActionStates] = useState<Record<string, 'idle' | 'running' | 'success' | 'failed'>>({});
 
+  // Action Confirmation Modal State
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    key: string;
+    type: 'restart' | 'scale';
+    ns: string;
+    svc: string;
+    label: string;
+    replicas?: number;
+  } | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
+
   const userRole = localStorage.getItem('user_role') || 'Viewer';
-  const isActionAllowed = ['Administrator', 'DevOps Engineer', 'Developer'].includes(userRole);
+  const isActionAllowed = ['Administrator', 'Platform Engineer', 'DevOps Engineer', 'Developer'].includes(userRole);
 
   const handleSend = (text: string) => {
     if (!text.trim() || loading) return;
@@ -66,20 +74,31 @@ const AI: React.FC = () => {
     );
   };
 
-  const handleTriggerAction = async (key: string, type: 'restart' | 'scale', ns: string, svc: string, replicas?: number) => {
+  const executeConfirmedAiAction = async (paramValue?: any) => {
+    if (!confirmModal) return;
+    setActionLoading(true);
+    const { key, type, ns, svc } = confirmModal;
     setActionStates(prev => ({ ...prev, [key]: 'running' }));
-    let success = false;
-    if (type === 'restart') {
-      success = await api.restartDeployment(ns, svc);
-    } else if (type === 'scale' && replicas !== undefined) {
-      success = await api.scaleDeployment(ns, svc, replicas);
-    }
-    setActionStates(prev => ({ ...prev, [key]: success ? 'success' : 'failed' }));
     
-    // Reset back to idle status after 3 seconds
-    setTimeout(() => {
-      setActionStates(prev => ({ ...prev, [key]: 'idle' }));
-    }, 3000);
+    let success = false;
+    try {
+      if (type === 'restart') {
+        success = await api.restartDeployment(ns, svc);
+      } else if (type === 'scale') {
+        const reps = typeof paramValue === 'number' ? paramValue : (confirmModal.replicas || 2);
+        success = await api.scaleDeployment(ns, svc, reps);
+      }
+      setActionStates(prev => ({ ...prev, [key]: success ? 'success' : 'failed' }));
+    } catch (e: any) {
+      alert(e.message || 'AI Recommended Action failed due to RBAC policy.');
+      setActionStates(prev => ({ ...prev, [key]: 'failed' }));
+    } finally {
+      setActionLoading(false);
+      setConfirmModal(null);
+      setTimeout(() => {
+        setActionStates(prev => ({ ...prev, [key]: 'idle' }));
+      }, 3000);
+    }
   };
 
   const parseActionableSuggestion = (rec: string) => {
@@ -118,85 +137,63 @@ const AI: React.FC = () => {
     return null;
   };
 
-  const presets = [
-    "Why is payment-service restarting?",
-    "Show cluster health",
-    "Explain CrashLoopBackOff",
-    "Show CPU usage"
-  ];
-
   return (
-    <div className="max-w-4xl mx-auto space-y-6 flex flex-col h-[calc(100vh-10rem)]">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="flex flex-col h-[calc(100vh-8.5rem)] space-y-4">
+      {/* Header Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
         <div className="flex items-center gap-3">
-          <h2 className="text-2xl font-bold tracking-tight text-slate-800 dark:text-white">AI Incident Assistant</h2>
-          <div className="px-2.5 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-500 text-[10px] font-bold flex items-center gap-1.5 uppercase">
-            <Sparkles className="h-3 w-3" />
-            {getScopeLabel()}
+          <div className="h-10 w-10 rounded-xl bg-blue-600/10 border border-blue-500/20 flex items-center justify-center text-blue-500">
+            <Bot className="h-6 w-6" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
+              AIOps Operations Assistant
+              <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-blue-500/10 text-blue-500 border border-blue-500/20">
+                {getScopeLabel()} Scope
+              </span>
+            </h2>
+            <p className="text-xs text-slate-400">Context-aware infrastructure diagnostics with RBAC-guarded actions.</p>
           </div>
         </div>
 
-        {/* Pluggable Provider Selection */}
-        <select 
-          value={provider}
-          onChange={(e) => setProvider(e.target.value)}
-          className="px-4 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:outline-none focus:border-blue-500 text-sm font-semibold cursor-pointer text-slate-800 dark:text-white"
-        >
-          <option value="groq">Groq (Llama-3)</option>
-          <option value="openai">OpenAI (GPT-4)</option>
-          <option value="ollama">Ollama (Local)</option>
-          <option value="lmstudio">LM Studio (Local)</option>
-        </select>
-      </div>
-
-      {/* Preset Command Buttons */}
-      <div className="flex flex-wrap gap-2.5">
-        {presets.map((preset, idx) => (
-          <button
-            key={idx}
-            onClick={() => handleSend(preset)}
-            className="px-4 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:border-blue-500 transition-all"
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-slate-400 font-semibold">Model Provider:</label>
+          <select 
+            value={provider}
+            onChange={(e) => setProvider(e.target.value)}
+            className="text-xs bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg px-2.5 py-1.5 focus:outline-none"
           >
-            {preset}
-          </button>
-        ))}
+            <option value="groq">Groq (llama-3.3-70b-versatile)</option>
+            <option value="openai">OpenAI (gpt-4o-mini)</option>
+          </select>
+        </div>
       </div>
 
-      {/* Message History Grid */}
-      <div className="flex-1 bg-white/45 dark:bg-slate-900/45 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 overflow-y-auto space-y-6 backdrop-blur-md">
+      {/* Messages Scroll Area */}
+      <div className="flex-1 overflow-y-auto space-y-4 pr-2">
         {messages.map((msg, idx) => (
           <div 
             key={idx} 
-            className={`flex gap-4 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+            className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
           >
-            {msg.sender === 'ai' && (
-              <div className="h-9 w-9 rounded-xl bg-blue-500/10 border border-blue-500/15 text-blue-500 flex items-center justify-center flex-shrink-0">
-                <Bot className="h-5 w-5" />
-              </div>
-            )}
-            
-            <div className={`p-5 rounded-2xl max-w-xl text-sm leading-relaxed ${
+            <div className={`max-w-3xl rounded-2xl p-5 border shadow-sm ${
               msg.sender === 'user' 
-                ? 'bg-blue-600 text-white font-medium shadow-md shadow-blue-500/10' 
-                : 'bg-slate-500/5 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200'
+                ? 'bg-blue-600 text-white border-blue-500 shadow-blue-600/10' 
+                : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-800 dark:text-white'
             }`}>
+              
               {msg.text && (
-                <div className="whitespace-pre-wrap select-text">
-                  {msg.text.replace(/###\s*(.*)/g, '$1')}
+                <div className="text-sm leading-relaxed whitespace-pre-wrap font-medium">
+                  {msg.text}
                 </div>
               )}
 
               {msg.structured && (
                 <div className="space-y-4">
-                  {/* Status header */}
-                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3 gap-3">
-                    <span className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                      msg.structured.severity.toLowerCase() === 'critical' ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20' :
-                      msg.structured.severity.toLowerCase() === 'warning' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' :
-                      'bg-blue-500/10 text-blue-500 border border-blue-500/20'
-                    }`}>
-                      <AlertTriangle className="h-3 w-3" />
-                      {msg.structured.severity}
+                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+                    <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-blue-500">
+                      <Sparkles className="h-4 w-4" />
+                      Telemetry Incident Diagnostics
                     </span>
                     <span className="flex items-center gap-1.5 text-xs text-slate-400 font-medium">
                       <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
@@ -204,12 +201,10 @@ const AI: React.FC = () => {
                     </span>
                   </div>
 
-                  {/* Summary */}
                   <div className="text-sm font-bold text-slate-800 dark:text-white leading-snug">
                     {msg.structured.summary}
                   </div>
 
-                  {/* Root Cause Analysis */}
                   <div className="space-y-1">
                     <h4 className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Root Cause Analysis</h4>
                     <div className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
@@ -217,7 +212,6 @@ const AI: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Affected Resources */}
                   {msg.structured.affected_resources && msg.structured.affected_resources.length > 0 && (
                     <div className="space-y-2 border-t border-slate-200 dark:border-slate-800 pt-3">
                       <h4 className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Affected Resources</h4>
@@ -231,24 +225,11 @@ const AI: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Evidence list */}
-                  {msg.structured.evidence && msg.structured.evidence.length > 0 && (
-                    <div className="space-y-2 border-t border-slate-200 dark:border-slate-800 pt-3">
-                      <h4 className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Observed Evidence</h4>
-                      <ul className="list-disc pl-4 space-y-1 text-xs text-slate-500 dark:text-slate-400">
-                        {msg.structured.evidence.map((ev, i) => (
-                          <li key={i}>{ev}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {/* Recommendations and Suggested Actions */}
                   {msg.structured.recommendations && msg.structured.recommendations.length > 0 && (
                     <div className="space-y-3 border-t border-slate-200 dark:border-slate-800 pt-3">
                       <h4 className="text-[10px] uppercase font-bold tracking-wider text-slate-400 flex items-center gap-1.5">
                         <CheckSquare className="h-3.5 w-3.5 text-blue-500" />
-                        Remediation Actions
+                        AI Remediation Action Triggers
                       </h4>
                       <div className="space-y-3">
                         {msg.structured.recommendations.map((rec, i) => {
@@ -266,22 +247,29 @@ const AI: React.FC = () => {
                               {action && (
                                 <div className="mt-1 flex items-center gap-2">
                                   <button
-                                    onClick={() => isActionAllowed && handleTriggerAction(actionKey, action.type, action.ns, action.svc, action.replicas)}
+                                    onClick={() => isActionAllowed && setConfirmModal({
+                                      isOpen: true,
+                                      key: actionKey,
+                                      type: action.type,
+                                      ns: action.ns,
+                                      svc: action.svc,
+                                      label: action.label,
+                                      replicas: action.replicas
+                                    })}
                                     disabled={state === 'running' || !isActionAllowed}
                                     className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all ${
                                       !isActionAllowed ? 'bg-slate-300 dark:bg-slate-800 text-slate-500 cursor-not-allowed opacity-50' :
                                       state === 'running' ? 'bg-slate-300 dark:bg-slate-800 text-slate-500 cursor-not-allowed' :
                                       state === 'success' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
                                       state === 'failed' ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20' :
-                                      'bg-blue-600 hover:bg-blue-500 text-white cursor-pointer'
+                                      'bg-blue-600 hover:bg-blue-500 text-white cursor-pointer shadow-md'
                                     }`}
-                                    title={!isActionAllowed ? "Insufficient permissions (Developer role required)" : ""}
                                   >
                                     <Play className="h-3 w-3" />
-                                    {state === 'running' ? 'Running...' :
-                                     state === 'success' ? 'Triggered Success' :
-                                     state === 'failed' ? 'Triggered Failed' :
-                                     action.label}
+                                    {state === 'running' ? 'Executing...' :
+                                     state === 'success' ? 'Triggered!' :
+                                     state === 'failed' ? 'Failed' :
+                                     `⚡ Action: ${action.label}`}
                                   </button>
                                 </div>
                               )}
@@ -291,51 +279,58 @@ const AI: React.FC = () => {
                       </div>
                     </div>
                   )}
+
                 </div>
               )}
-            </div>
 
-            {msg.sender === 'user' && (
-              <div className="h-9 w-9 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 text-white flex items-center justify-center font-bold text-xs flex-shrink-0">
-                U
-              </div>
-            )}
+            </div>
           </div>
         ))}
+
         {loading && (
-          <div className="flex gap-4 justify-start">
-            <div className="h-9 w-9 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center flex-shrink-0 animate-pulse">
-              <Bot className="h-5 w-5" />
-            </div>
-            <div className="p-4 rounded-2xl bg-slate-500/5 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 text-slate-400 text-xs flex items-center gap-2 select-none">
-              <span className="h-1.5 w-1.5 bg-slate-400 rounded-full animate-bounce" />
-              <span className="h-1.5 w-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:0.2s]" />
-              <span className="h-1.5 w-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:0.4s]" />
-              <span>{progressStatus || 'Querying'} ({provider} engine)...</span>
-            </div>
+          <div className="flex items-center gap-2 text-xs text-blue-500 font-bold bg-blue-500/10 p-3 rounded-xl border border-blue-500/20 w-max">
+            <Sparkles className="h-4 w-4 animate-spin" />
+            <span>{progressStatus || 'Analyzing cluster state...'}</span>
           </div>
         )}
       </div>
 
-      {/* Input panel */}
-      <form 
-        onSubmit={(e) => { e.preventDefault(); handleSend(input); }}
-        className="flex gap-3 sticky bottom-0"
-      >
+      {/* Input Box */}
+      <div className="bg-white dark:bg-slate-900 p-3 rounded-2xl border border-slate-200 dark:border-slate-800 flex items-center gap-2 shadow-lg">
         <input
           type="text"
-          placeholder={`Type a command for the ${provider} engine...`}
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          className="flex-1 px-4 py-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:outline-none focus:border-blue-500 text-sm text-slate-800 dark:text-white"
+          onKeyDown={(e) => e.key === 'Enter' && handleSend(input)}
+          placeholder="Ask AI Assistant to diagnose issues or perform operational actions..."
+          className="flex-1 bg-transparent px-3 py-2 text-sm text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none"
         />
         <button
-          type="submit"
-          className="px-5 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center shadow-lg shadow-blue-500/20 transition-all cursor-pointer"
+          onClick={() => handleSend(input)}
+          disabled={loading || !input.trim()}
+          className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 text-white font-bold text-xs flex items-center gap-2 transition-all cursor-pointer"
         >
           <Send className="h-4 w-4" />
+          Send
         </button>
-      </form>
+      </div>
+
+      {/* AI Action Confirmation Modal */}
+      {confirmModal && (
+        <ActionConfirmationModal
+          isOpen={true}
+          onClose={() => setConfirmModal(null)}
+          onConfirm={executeConfirmedAiAction}
+          title={`Execute AI Recommended Action`}
+          description={`AI Recommendation: "${confirmModal.label}". Are you sure you want to execute this operation?`}
+          resourceName={confirmModal.svc}
+          resourceType="Deployment"
+          namespace={confirmModal.ns}
+          actionType={confirmModal.type}
+          defaultValue={confirmModal.replicas}
+          loading={actionLoading}
+        />
+      )}
     </div>
   );
 };

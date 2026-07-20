@@ -168,6 +168,113 @@ async def scale_deployment(
     except KubernetesClientException as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
+@router.delete("/pods/{namespace}/{name}", response_model=BaseResponse)
+async def delete_pod(
+    request: Request,
+    namespace: str = Path(..., description="Namespace scope."),
+    name: str = Path(..., description="Target pod identifier.")
+):
+    request_id = getattr(request.state, "request_id", None)
+    user_dict = get_current_user(request)
+    username = user_dict.get("username") or user_dict.get("sub") or "viewer"
+
+    authz_engine.authorize(username, "pods", "delete", namespace=namespace, application=name)
+    try:
+        data = pod_service.delete_pod(namespace, name)
+        audit_service.log_action(
+            username=username,
+            role_name=user_dict.get("role", "Viewer"),
+            action="delete_pod",
+            target_resource=f"pod/{name}",
+            namespace=namespace,
+            client_ip=request.client.host if request.client else "127.0.0.1"
+        )
+        return BaseResponse(success=True, data=data, request_id=request_id)
+    except KubernetesClientException as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+@router.post("/pods/{namespace}/{name}/restart", response_model=BaseResponse)
+async def restart_pod(
+    request: Request,
+    namespace: str = Path(..., description="Namespace scope."),
+    name: str = Path(..., description="Target pod identifier.")
+):
+    request_id = getattr(request.state, "request_id", None)
+    user_dict = get_current_user(request)
+    username = user_dict.get("username") or user_dict.get("sub") or "viewer"
+
+    authz_engine.authorize(username, "pods", "restart_deployment", namespace=namespace, application=name)
+    try:
+        data = pod_service.restart_pod(namespace, name)
+        audit_service.log_action(
+            username=username,
+            role_name=user_dict.get("role", "Viewer"),
+            action="restart_pod",
+            target_resource=f"pod/{name}",
+            namespace=namespace,
+            client_ip=request.client.host if request.client else "127.0.0.1"
+        )
+        return BaseResponse(success=True, data=data, request_id=request_id)
+    except KubernetesClientException as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+@router.delete("/deployments/{namespace}/{name}", response_model=BaseResponse)
+async def delete_deployment(
+    request: Request,
+    namespace: str = Path(..., description="Namespace scope."),
+    name: str = Path(..., description="Target deployment identifier.")
+):
+    request_id = getattr(request.state, "request_id", None)
+    user_dict = get_current_user(request)
+    username = user_dict.get("username") or user_dict.get("sub") or "viewer"
+
+    authz_engine.authorize(username, "deployments", "delete", namespace=namespace, application=name)
+    try:
+        import subprocess
+        cmd = ["kubectl", "delete", "deployment", name, "-n", namespace]
+        subprocess.run(cmd, check=True, capture_output=True, text=True)
+        audit_service.log_action(
+            username=username,
+            role_name=user_dict.get("role", "Viewer"),
+            action="delete_deployment",
+            target_resource=f"deployment/{name}",
+            namespace=namespace,
+            application=name,
+            client_ip=request.client.host if request.client else "127.0.0.1"
+        )
+        return BaseResponse(success=True, data={"message": f"Deployment {name} deleted successfully."}, request_id=request_id)
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+@router.post("/deployments/{namespace}/{name}/rollback", response_model=BaseResponse)
+async def rollback_deployment(
+    request: Request,
+    namespace: str = Path(..., description="Namespace scope."),
+    name: str = Path(..., description="Target deployment identifier.")
+):
+    request_id = getattr(request.state, "request_id", None)
+    user_dict = get_current_user(request)
+    username = user_dict.get("username") or user_dict.get("sub") or "viewer"
+
+    authz_engine.authorize(username, "deployments", "rollback_application", namespace=namespace, application=name)
+    try:
+        import subprocess
+        cmd = ["kubectl", "rollout", "undo", f"deployment/{name}", "-n", namespace]
+        res = subprocess.run(cmd, check=True, capture_output=True, text=True)
+        audit_service.log_action(
+            username=username,
+            role_name=user_dict.get("role", "Viewer"),
+            action="rollback_deployment",
+            target_resource=f"deployment/{name}",
+            namespace=namespace,
+            application=name,
+            new_value="rolled_back_previous_revision",
+            client_ip=request.client.host if request.client else "127.0.0.1"
+        )
+        return BaseResponse(success=True, data={"message": res.stdout.strip() or f"Rollout undo triggered for {name}."}, request_id=request_id)
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
 @router.get("/ingresses", response_model=BaseResponse)
 async def list_ingresses(request: Request, namespace: Optional[str] = Query(None, description="Optional namespace filter.")):
     request_id = getattr(request.state, "request_id", None)
