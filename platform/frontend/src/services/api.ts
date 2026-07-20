@@ -114,6 +114,14 @@ export const api = {
     return response.data;
   },
 
+  reconnectGitOpsApp: async (appName: string, mode: 'adopt' | 'restore' = 'restore', namespace?: string): Promise<any> => {
+    const response = await apiClient.post(`/api/v1/gitops/argocd/applications/${appName}/reconnect`, {
+      mode,
+      namespace: namespace || 'devops-nexus-prod'
+    });
+    return response.data;
+  },
+
   getDeployments: async (ns?: string, scopeParams?: Record<string, string>): Promise<any[]> => {
     try {
       const params = new URLSearchParams(scopeParams || {});

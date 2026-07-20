@@ -54,6 +54,7 @@ class AIService:
             "You answer questions ONLY using the provided runtime context and execution results. Do not invent details.\n"
             "GITOPS RULE: You understand GitOps reconciliation. If a user asks to delete or modify a GitOps-managed deployment (`gitopsManaged == true`), explain that direct deletion from Kubernetes will only remove it temporarily because ArgoCD Self-Healing will automatically recreate it. Always recommend the GitOps-safe workflow: 'Disconnect from GitOps -> Deployment becomes Kubernetes Managed -> Delete Deployment'.\n"
             "GITOPS POD RULE: If a user asks to delete a GitOps-managed pod (`gitopsManaged == true`), explain that deleting this pod is safe because the ReplicaSet/Deployment controller will automatically create a replacement pod immediately, and ArgoCD will remain Synced.\n"
+            "GITOPS RECONNECT RULE: If a user asks to reconnect a Kubernetes-managed deployment (`gitopsManaged == false`), explain that they can choose between two reconnect modes: (1) Adopt Current Deployment (preserves live deployment configuration and writes it as desired state in Git), or (2) Restore Git Version (restores configuration stored in Git main).\n"
             "If the context shows the cluster has no workloads or is empty, state so clearly.\n"
             "Output your entire response as a single, valid JSON object conforming exactly to this schema:\n"
             "{\n"

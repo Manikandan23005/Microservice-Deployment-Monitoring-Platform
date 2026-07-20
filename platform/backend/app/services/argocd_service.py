@@ -75,4 +75,10 @@ class ArgoCDService:
         except ArgoCDConnectionException as e:
             raise e
 
+    def reconnect_application(self, app_name: str, mode: str = "restore", namespace: str = "devops-nexus-prod") -> Dict[str, Any]:
+        try:
+            return argocd_client.reconnect_application(app_name, mode=mode, namespace=namespace)
+        except ArgoCDConnectionException as e:
+            raise e
+
 argocd_service = ArgoCDService()

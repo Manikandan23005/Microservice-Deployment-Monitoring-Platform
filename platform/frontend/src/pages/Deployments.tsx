@@ -7,6 +7,7 @@ import { useScope } from '../context/ScopeContext';
 import { ActionConfirmationModal } from '../components/ActionConfirmationModal';
 import { DisconnectGitOpsModal } from '../components/DisconnectGitOpsModal';
 import { TemporaryDeleteModal } from '../components/TemporaryDeleteModal';
+import { ReconnectGitOpsModal } from '../components/ReconnectGitOpsModal';
 
 interface DeploymentItem {
   name: string;
@@ -38,9 +39,10 @@ const Deployments: React.FC = () => {
   const [modalAction, setModalAction] = useState<'restart' | 'scale' | 'rollback' | 'delete' | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
-  // Sprint 15.1 GitOps Modals State
+  // Sprint 15.1 & 15.3 GitOps Modals State
   const [disconnectModalTarget, setDisconnectModalTarget] = useState<DeploymentItem | null>(null);
   const [tempDeleteModalTarget, setTempDeleteModalTarget] = useState<DeploymentItem | null>(null);
+  const [reconnectModalTarget, setReconnectModalTarget] = useState<DeploymentItem | null>(null);
 
   const userRole = localStorage.getItem('user_role') || 'Viewer';
   const isDevOpsOrAdmin = ['Administrator', 'Platform Engineer', 'DevOps Engineer'].includes(userRole);
@@ -282,6 +284,18 @@ const Deployments: React.FC = () => {
                 </button>
               )}
 
+              {/* Reconnect to GitOps */}
+              {isDevOpsOrAdmin && (
+                <button
+                  onClick={() => setReconnectModalTarget(item)}
+                  className="flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 text-xs font-bold cursor-pointer"
+                  title="Reconnect Deployment to GitOps Management"
+                >
+                  <GitBranch className="h-3 w-3" />
+                  Reconnect to GitOps
+                </button>
+              )}
+
               {/* Permanent Delete */}
               {isAdmin && (
                 <button
@@ -374,6 +388,17 @@ const Deployments: React.FC = () => {
           onOpenDisconnect={() => setDisconnectModalTarget(tempDeleteModalTarget)}
           deploymentName={tempDeleteModalTarget.name}
           namespace={tempDeleteModalTarget.namespace}
+        />
+      )}
+
+      {/* Sprint 15.3 Reconnect to GitOps Modal */}
+      {reconnectModalTarget && (
+        <ReconnectGitOpsModal
+          isOpen={true}
+          onClose={() => setReconnectModalTarget(null)}
+          onSuccess={fetchDeployments}
+          deploymentName={reconnectModalTarget.name}
+          namespace={reconnectModalTarget.namespace}
         />
       )}
 

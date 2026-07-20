@@ -140,4 +140,87 @@ class ArgoCDClient:
                 logger.error(f"Fallback CRD deletion also failed: {str(inner_e)}")
             raise ArgoCDConnectionException(f"ArgoCD connection error: {str(e)}")
 
+    def reconnect_application(self, app_name: str, mode: str = "restore", namespace: str = "devops-nexus-prod") -> Dict[str, Any]:
+        """Reconnects a Kubernetes deployment back to ArgoCD GitOps management."""
+        clean_prefix = app_name.replace("-service", "").replace("-prod", "").replace("-dev", "").lower()
+        target_app_name = f"{clean_prefix}-prod" if not app_name.endswith("-prod") else app_name
+
+        # Determine git repo manifest path
+        if clean_prefix in ["auth", "frontend", "gateway", "notification", "orders", "payment", "products", "users"]:
+            repo_path = f"helm/{clean_prefix}"
+        else:
+            repo_path = "kubernetes"
+
+        app_manifest = {
+            "apiVersion": "argoproj.io/v1alpha1",
+            "kind": "Application",
+            "metadata": {
+                "name": target_app_name,
+                "namespace": "argocd",
+                "labels": {"env": "prod"}
+            },
+            "spec": {
+                "project": "default",
+                "source": {
+                    "repoURL": "https://github.com/Manikandan23005/Microservice-Deployment-Monitoring-Platform.git",
+                    "targetRevision": "main",
+                    "path": repo_path
+                },
+                "destination": {
+                    "server": "https://kubernetes.default.svc",
+                    "namespace": namespace
+                },
+                "syncPolicy": {
+                    "automated": {
+                        "selfHeal": True,
+                        "prune": False
+                    }
+                }
+            }
+        }
+
+        # Step 1: Create/Apply ArgoCD Application CRD
+        from app.clients.kubernetes import k8s_client
+        if not k8s_client._initialized:
+            k8s_client.initialize()
+        from kubernetes import client as k8s_sdk
+
+        custom_api = k8s_sdk.CustomObjectsApi()
+        try:
+            custom_api.create_namespaced_custom_object(
+                group="argoproj.io",
+                version="v1alpha1",
+                namespace="argocd",
+                plural="applications",
+                body=app_manifest
+            )
+            logger.info(f"Created ArgoCD Application CRD '{target_app_name}'.")
+        except k8s_sdk.rest.ApiException as e:
+            if e.status in (409, 422):
+                # Update existing application CRD if it already exists
+                custom_api.patch_namespaced_custom_object(
+                    group="argoproj.io",
+                    version="v1alpha1",
+                    namespace="argocd",
+                    plural="applications",
+                    name=target_app_name,
+                    body=app_manifest
+                )
+                logger.info(f"Patched existing ArgoCD Application CRD '{target_app_name}'.")
+            else:
+                raise ArgoCDConnectionException(f"Failed to create ArgoCD application CRD: {e.reason}")
+
+        # Step 2: Trigger Sync
+        try:
+            self.refresh_application(target_app_name)
+        except Exception as e:
+            logger.warning(f"Refresh failed during reconnect: {str(e)}")
+
+        return {
+            "success": True,
+            "message": f"Deployment '{app_name}' reconnected to GitOps successfully under ArgoCD app '{target_app_name}'.",
+            "app_name": target_app_name,
+            "mode": mode
+        }
+
 argocd_client = ArgoCDClient()

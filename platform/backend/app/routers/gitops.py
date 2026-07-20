@@ -1,5 +1,6 @@
 # --- GitOps REST Router ---
 from fastapi import APIRouter, Request, Query, Path, HTTPException, status
+from pydantic import BaseModel
 from typing import Optional
 from app.schemas.responses import BaseResponse
 from app.services.gitops_service import gitops_service
@@ -163,6 +164,42 @@ async def disconnect_argocd_application(
             target_resource=f"argocd/{app_name}",
             application=app_name,
             new_value="gitops_disconnected",
+            client_ip=request.client.host if request.client else "127.0.0.1"
+        )
+        return BaseResponse(success=True, data=data, request_id=request_id)
+    except DevOpsNexusException as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+class ReconnectRequest(BaseModel):
+    mode: str = "restore"
+    namespace: Optional[str] = "devops-nexus-prod"
+
+@router.post("/argocd/applications/{app_name}/reconnect", response_model=BaseResponse)
+async def reconnect_argocd_application(
+    request: Request,
+    body: ReconnectRequest,
+    app_name: str = Path(..., description="Target application name to reconnect to GitOps.")
+):
+    """Reconnects a Kubernetes deployment back to ArgoCD GitOps management under adopt or restore mode."""
+    request_id = getattr(request.state, "request_id", None)
+    user_dict = get_current_user(request)
+    username = user_dict.get("username") or user_dict.get("sub") or "viewer"
+
+    # Authorized for DevOps Engineer and Administrator roles
+    authz_engine.authorize(username, "gitops", "reconnect_gitops", application=app_name)
+    try:
+        data = argocd_service.reconnect_application(
+            app_name=app_name,
+            mode=body.mode,
+            namespace=body.namespace or "devops-nexus-prod"
+        )
+        audit_service.log_action(
+            username=username,
+            role_name=user_dict.get("role", "Viewer"),
+            action="reconnect_gitops",
+            target_resource=f"argocd/{app_name}",
+            application=app_name,
+            new_value=f"mode={body.mode}",
             client_ip=request.client.host if request.client else "127.0.0.1"
         )
         return BaseResponse(success=True, data=data, request_id=request_id)
