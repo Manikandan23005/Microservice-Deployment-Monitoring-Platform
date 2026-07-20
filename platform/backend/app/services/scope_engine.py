@@ -145,4 +145,8 @@ class ScopeEngine:
             return '{job=~".*"}'
         return "{" + ", ".join(clauses) + "}"
 
+    def build_logql_selector(self, scope: OperationsScope) -> str:
+        """Alias for build_logql_filter."""
+        return self.build_logql_filter(scope)
+
 scope_engine = ScopeEngine()

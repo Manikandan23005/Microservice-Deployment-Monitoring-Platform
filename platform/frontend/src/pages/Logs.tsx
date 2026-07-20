@@ -72,16 +72,12 @@ const Logs: React.FC = () => {
           <select 
             value={selectedPod}
             onChange={(e) => setSelectedPod(e.target.value)}
-            disabled={podsList.length === 0}
-            className="px-4 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:outline-none focus:border-blue-500 text-sm font-semibold cursor-pointer disabled:opacity-50"
+            className="px-4 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:outline-none focus:border-blue-500 text-sm font-semibold cursor-pointer"
           >
-            {podsList.length > 0 ? (
-              podsList.map(pod => (
-                <option key={pod} value={pod}>{pod}</option>
-              ))
-            ) : (
-              <option value="">No active pods</option>
-            )}
+            <option value="all">All Pods ({podsList.length})</option>
+            {podsList.map(pod => (
+              <option key={pod} value={pod}>{pod}</option>
+            ))}
           </select>
 
           <div className="relative flex-1 md:w-64">

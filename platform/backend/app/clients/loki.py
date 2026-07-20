@@ -23,17 +23,17 @@ class LokiClient:
         if end:
             params["end"] = str(int(end * 1e9))
 
+        headers = {"X-Scope-OrgID": "fake"}
         try:
-            with httpx.Client(timeout=1.5) as client:
+            with httpx.Client(timeout=2.0, headers=headers) as client:
                 response = client.get(url, params=params)
-                if response.status_code != 200:
-                    raise TelemetryFetchException(f"Loki query_range returned status {response.status_code}: {response.text}")
-                return response.json()
+                if response.status_code == 200:
+                    return response.json()
         except Exception:
             # Auto-repair port-forward if connection was refused
             port_supervisor.ensure_telemetry_ports()
             try:
-                with httpx.Client(timeout=1.5) as client:
+                with httpx.Client(timeout=2.0, headers=headers) as client:
                     response = client.get(url, params=params)
                     if response.status_code == 200:
                         return response.json()
