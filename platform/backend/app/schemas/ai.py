@@ -29,3 +29,27 @@ class AIStructuredResponse(BaseModel):
     recommendations: List[str] = Field(default_factory=list, description="Actionable remediation steps to fix the issue.")
     severity: str = Field(..., description="Target severity indicator: Info, Warning, Critical.")
     confidence: int = Field(..., description="Analysis confidence percentage score between 0 and 100.")
+
+class AICopilotInvestigateRequest(BaseModel):
+    prompt: str = Field(..., description="Investigation prompt or question.")
+    resource_name: Optional[str] = Field(None, description="Selected resource name.")
+    resource_kind: Optional[str] = Field("deployment", description="Selected resource kind: deployment, pod, namespace, node.")
+    namespace: Optional[str] = Field("devops-nexus-prod", description="Namespace scope.")
+    cluster_id: Optional[str] = Field("default", description="Active cluster ID.")
+
+class AIGeneratePlanRequest(BaseModel):
+    action_type: str = Field(..., description="Action type: restart_deployment, sync_argocd, scale_deployment, etc.")
+    target_resource: str = Field(..., description="Target resource name.")
+    namespace: Optional[str] = Field("devops-nexus-prod", description="Namespace scope.")
+    parameters: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Action parameters e.g. replicas.")
+    cluster_id: Optional[str] = Field("default", description="Active cluster ID.")
+
+class AIExecuteStepRequest(BaseModel):
+    plan_id: str = Field(..., description="Execution plan ID.")
+    step_index: int = Field(..., description="Step index to execute (1-indexed).")
+    confirm_token: Optional[str] = Field(None, description="Explicit confirmation token 'CONFIRM' for high-risk actions.")
+
+class AIVerifyRequest(BaseModel):
+    target_resource: str = Field(..., description="Target resource name.")
+    namespace: Optional[str] = Field("devops-nexus-prod", description="Namespace scope.")
+    cluster_id: Optional[str] = Field("default", description="Active cluster ID.")

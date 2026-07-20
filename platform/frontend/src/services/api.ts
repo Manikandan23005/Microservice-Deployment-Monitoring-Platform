@@ -579,5 +579,48 @@ export const api = {
 
   deleteCluster: async (id: string): Promise<any> => {
     return apiClient.delete(`/api/v1/clusters/${id}`);
+  },
+
+  // --- Sprint 17 Autonomous AIOps Copilot Endpoints ---
+  investigateCopilot: async (prompt: string, resourceName?: string, resourceKind?: string, namespace?: string): Promise<any> => {
+    const response = await apiClient.post('/api/v1/ai/investigate', {
+      prompt,
+      resource_name: resourceName,
+      resource_kind: resourceKind || 'deployment',
+      namespace: namespace || 'devops-nexus-prod'
+    });
+    return response.data?.data;
+  },
+
+  generateExecutionPlan: async (actionType: string, targetResource: string, namespace?: string, parameters?: any): Promise<any> => {
+    const response = await apiClient.post('/api/v1/ai/plan/generate', {
+      action_type: actionType,
+      target_resource: targetResource,
+      namespace: namespace || 'devops-nexus-prod',
+      parameters: parameters || {}
+    });
+    return response.data?.data;
+  },
+
+  executePlanStep: async (planId: string, stepIndex: number, confirmToken?: string): Promise<any> => {
+    const response = await apiClient.post('/api/v1/ai/plan/execute-step', {
+      plan_id: planId,
+      step_index: stepIndex,
+      confirm_token: confirmToken
+    });
+    return response.data?.data;
+  },
+
+  verifyRemediation: async (targetResource: string, namespace?: string): Promise<any> => {
+    const response = await apiClient.post('/api/v1/ai/plan/verify', {
+      target_resource: targetResource,
+      namespace: namespace || 'devops-nexus-prod'
+    });
+    return response.data?.data;
+  },
+
+  inspectContext: async (namespace?: string): Promise<any> => {
+    const response = await apiClient.get(`/api/v1/ai/context/inspect?namespace=${namespace || 'devops-nexus-prod'}`);
+    return response.data?.data;
   }
 };

@@ -68,8 +68,8 @@ const Pods: React.FC = () => {
     {
       header: 'Pod Name',
       accessor: (item: PodItem) => (
-        <div className="space-y-1">
-          <div className="font-mono font-bold text-slate-800 dark:text-white text-sm flex items-center gap-2">
+        <div className="space-y-1" data-ai-resource data-ai-name={item.name} data-ai-kind="pod" data-ai-namespace={item.namespace}>
+          <div className="font-mono font-bold text-slate-800 dark:text-white text-sm flex items-center gap-2 cursor-context-menu" title="Right-click for AI Actions">
             <Box className="h-4 w-4 text-blue-400" />
             {item.name}
           </div>

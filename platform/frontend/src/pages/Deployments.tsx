@@ -119,8 +119,8 @@ const Deployments: React.FC = () => {
     {
       header: 'Deployment Name',
       accessor: (item: DeploymentItem) => (
-        <div className="space-y-1">
-          <div className="font-bold text-slate-800 dark:text-white font-mono text-sm flex items-center gap-2">
+        <div className="space-y-1" data-ai-resource data-ai-name={item.name} data-ai-kind="deployment" data-ai-namespace={item.namespace}>
+          <div className="font-bold text-slate-800 dark:text-white font-mono text-sm flex items-center gap-2 cursor-context-menu" title="Right-click for AI Actions">
             {item.name}
             <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">
               {item.namespace}

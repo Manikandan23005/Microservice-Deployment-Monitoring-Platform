@@ -9,6 +9,8 @@ import { api } from '../services/api';
 import { useScope, ScopeMode, InfrastructureDomain } from '../context/ScopeContext';
 
 import { ClusterSelector } from '../components/ClusterSelector';
+import { AICopilotDrawer } from '../components/AICopilotDrawer';
+import { ResourceContextMenu } from '../components/ResourceContextMenu';
 
 const DashboardLayout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -268,8 +270,13 @@ const DashboardLayout: React.FC = () => {
 
         {/* Content Viewport */}
         <main className="flex-1 p-8 overflow-y-auto">
-          <Outlet />
+          <ResourceContextMenu>
+            <Outlet />
+          </ResourceContextMenu>
         </main>
+
+        {/* Global Floating AI Copilot Drawer */}
+        <AICopilotDrawer />
       </div>
     </div>
   );
