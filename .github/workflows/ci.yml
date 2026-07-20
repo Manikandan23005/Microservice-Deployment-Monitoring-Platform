@@ -30,8 +30,11 @@ jobs:
 
       - name: Lint Microservice Helm Charts
         run: |
+          echo "=== Linting Root Umbrella Helm Chart ==="
+          helm lint helm/
+          
           for chart in helm/*; do
-            if [ -d "$chart" ]; then
+            if [ -f "$chart/Chart.yaml" ]; then
               echo "=== Linting $chart ==="
               helm lint "$chart"
             fi
