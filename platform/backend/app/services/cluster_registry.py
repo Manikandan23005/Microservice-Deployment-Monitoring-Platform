@@ -36,7 +36,31 @@ class ClusterRegistryService:
     def __init__(self):
         self._memory_clusters: Dict[str, Dict[str, Any]] = {}
         self._api_client_cache: Dict[str, Dict[str, Any]] = {}
+        self._auto_detect_local_clusters()
+
+    def _auto_detect_local_clusters(self):
+        """Auto-detects local Kubernetes clusters (Minikube, kubeadm, admin.conf) from environment & kubeconfig."""
         self._auto_register_local_minikube()
+
+        # Scan host paths for local kubeadm cluster configurations
+        kubeconfig_paths = [
+            "/etc/kubernetes/admin.conf",
+            os.path.expanduser("~/.kube/config"),
+            os.getenv("KUBECONFIG")
+        ]
+
+        for kpath in kubeconfig_paths:
+            if kpath and os.path.exists(kpath):
+                try:
+                    with open(kpath, "r") as f:
+                        content = f.read()
+                    contexts = self.parse_kubeconfig_contexts(content)
+                    for ctx in contexts:
+                        ctx_name = ctx.get("context_name", "")
+                        if "kubernetes-admin" in ctx_name.lower() or "kubeadm" in ctx_name.lower() or "admin.conf" in kpath:
+                            self._auto_register_kubeadm(ctx_name, ctx.get("api_server", "https://10.0.1.100:6443"), content)
+                except Exception as e:
+                    logger.debug(f"Kubeconfig scan on {kpath} skipped: {str(e)}")
 
     def _auto_register_local_minikube(self):
         """Auto-detects local Minikube kubeconfig and registers it as 'Local Development'."""
@@ -95,6 +119,63 @@ class ClusterRegistryService:
                 logger.info("Successfully registered local Minikube cluster in Cluster Registry.")
             except Exception as e:
                 logger.warning(f"Failed to persist local Minikube cluster in PostgreSQL: {str(e)}")
+
+    def _auto_register_kubeadm(self, context_name: str, api_server: str, kubeconfig_content: str):
+        """Auto-registers detected local kubeadm cluster."""
+        now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        kubeadm_cluster = {
+            "id": "cluster-kubeadm-local",
+            "name": "Kubeadm Production Cluster",
+            "description": "Production kubeadm bare-metal cluster environment",
+            "environment": ClusterEnvironment.PRODUCTION.value,
+            "provider": ClusterProvider.KUBEADM.value,
+            "context_name": context_name,
+            "kubeconfig_content": kubeconfig_content,
+            "api_server": api_server,
+            "authentication_type": "Kubeconfig",
+            "default_namespace": "devops-nexus-prod",
+            "status": ClusterStatus.CONNECTED.value,
+            "is_default": False,
+            "argocd_url": None,
+            "argocd_token": None,
+            "prometheus_url": None,
+            "loki_url": None,
+            "created_at": now,
+            "updated_at": now
+        }
+        self._memory_clusters[kubeadm_cluster["id"]] = kubeadm_cluster
+
+        if postgres_available and SessionLocal:
+            try:
+                db = SessionLocal()
+                existing = db.query(ClusterModel).filter(ClusterModel.id == kubeadm_cluster["id"]).first()
+                if not existing:
+                    db_cluster = ClusterModel(
+                        id=kubeadm_cluster["id"],
+                        name=kubeadm_cluster["name"],
+                        description=kubeadm_cluster["description"],
+                        environment=kubeadm_cluster["environment"],
+                        provider=kubeadm_cluster["provider"],
+                        context_name=kubeadm_cluster["context_name"],
+                        kubeconfig_content=kubeadm_cluster["kubeconfig_content"],
+                        api_server=kubeadm_cluster["api_server"],
+                        authentication_type=kubeadm_cluster["authentication_type"],
+                        default_namespace=kubeadm_cluster["default_namespace"],
+                        status=kubeadm_cluster["status"],
+                        is_default=kubeadm_cluster["is_default"],
+                        argocd_url=kubeadm_cluster["argocd_url"],
+                        argocd_token=kubeadm_cluster["argocd_token"],
+                        prometheus_url=kubeadm_cluster["prometheus_url"],
+                        loki_url=kubeadm_cluster["loki_url"],
+                        created_at=kubeadm_cluster["created_at"],
+                        updated_at=kubeadm_cluster["updated_at"]
+                    )
+                    db.add(db_cluster)
+                    db.commit()
+                db.close()
+                logger.info("Successfully registered local kubeadm cluster in Cluster Registry.")
+            except Exception as e:
+                logger.warning(f"Failed to persist local kubeadm cluster in PostgreSQL: {str(e)}")
 
     def list_clusters(self) -> List[Dict[str, Any]]:
         if postgres_available and SessionLocal:
