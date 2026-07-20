@@ -313,26 +313,26 @@ export const AICopilotDrawer: React.FC = () => {
                       <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                         <span className="font-bold text-white flex items-center gap-1.5">
                           <Activity className="h-3.5 w-3.5 text-indigo-400" />
-                          Root Cause Analysis
+                          {m.investigation.severity === 'Info' ? 'Telemetry Status Summary' : 'Root Cause Analysis'}
                         </span>
                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
                           m.investigation.severity === 'Critical' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' :
                           m.investigation.severity === 'Warning' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
                           'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                         }`}>
-                          {m.investigation.severity} • {m.investigation.confidence}% Confidence
+                          {m.investigation.severity} • {m.investigation.confidence}% {m.investigation.severity === 'Info' ? 'Verified' : 'Confidence'}
                         </span>
                       </div>
 
                       <div className="text-slate-300">
-                        <span className="text-slate-400 font-semibold">Incident Pattern:</span>{' '}
-                        <strong className="text-amber-300">{m.investigation.incident_type}</strong>
+                        <span className="text-slate-400 font-semibold">Classification:</span>{' '}
+                        <strong className="text-indigo-300">{m.investigation.incident_type}</strong>
                       </div>
 
-                      {/* Evidence List */}
+                      {/* Evidence / Metrics List */}
                       {m.investigation.evidence?.length > 0 && (
                         <div className="space-y-1">
-                          <span className="text-slate-400 font-semibold">Evidence:</span>
+                          <span className="text-slate-400 font-semibold">Live Telemetry Evidence:</span>
                           <ul className="list-disc list-inside space-y-0.5 font-mono text-[10px] text-slate-400 bg-slate-950 p-2 rounded-lg border border-slate-800">
                             {m.investigation.evidence.map((ev: string, idx: number) => (
                               <li key={idx} className="truncate">{ev}</li>
