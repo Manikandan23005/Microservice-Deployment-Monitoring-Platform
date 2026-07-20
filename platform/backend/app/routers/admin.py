@@ -16,7 +16,7 @@ router = APIRouter(
 
 def verify_admin_access(request: Request):
     user_dict = get_current_user(request)
-    username = user_dict.get("username", "viewer")
+    username = user_dict.get("username") or user_dict.get("sub") or "viewer"
     authz_engine.authorize(username, "settings", "view")
     return username
 

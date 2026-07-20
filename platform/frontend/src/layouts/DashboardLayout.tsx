@@ -34,7 +34,7 @@ const DashboardLayout: React.FC = () => {
   }, [darkMode]);
 
   const userRole = localStorage.getItem('user_role') || 'Viewer';
-  const isAdmin = ['Administrator', 'Platform Engineer'].includes(userRole);
+  const isAdmin = ['Administrator', 'Platform Engineer', 'DevOps Engineer'].includes(userRole);
 
   const mainNavItems = [
     { path: '/overview', label: 'Overview', icon: LayoutDashboard },

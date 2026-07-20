@@ -41,7 +41,7 @@ async def login(body: LoginRequest, response: Response, request: Request):
         )
 
     role = user.role_name
-    token = create_access_token({"sub": username, "role": role})
+    token = create_access_token({"sub": username, "username": username, "role": role})
     
     audit_service.log_action(
         username=username,

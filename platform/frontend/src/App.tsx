@@ -54,7 +54,7 @@ function App() {
           <Route 
             path="admin/users" 
             element={
-              <ProtectedRoute allowedRoles={['Administrator', 'Platform Engineer']}>
+              <ProtectedRoute allowedRoles={['Administrator', 'Platform Engineer', 'DevOps Engineer']}>
                 <UsersPage />
               </ProtectedRoute>
             } 
@@ -62,7 +62,7 @@ function App() {
           <Route 
             path="admin/roles" 
             element={
-              <ProtectedRoute allowedRoles={['Administrator', 'Platform Engineer']}>
+              <ProtectedRoute allowedRoles={['Administrator', 'Platform Engineer', 'DevOps Engineer']}>
                 <RolesPage />
               </ProtectedRoute>
             } 
@@ -70,7 +70,7 @@ function App() {
           <Route 
             path="admin/permissions" 
             element={
-              <ProtectedRoute allowedRoles={['Administrator', 'Platform Engineer']}>
+              <ProtectedRoute allowedRoles={['Administrator', 'Platform Engineer', 'DevOps Engineer']}>
                 <PermissionsMatrixPage />
               </ProtectedRoute>
             } 
@@ -78,7 +78,7 @@ function App() {
           <Route 
             path="admin/audit" 
             element={
-              <ProtectedRoute allowedRoles={['Administrator', 'Platform Engineer']}>
+              <ProtectedRoute allowedRoles={['Administrator', 'Platform Engineer', 'DevOps Engineer']}>
                 <AuditLogsPage />
               </ProtectedRoute>
             } 
