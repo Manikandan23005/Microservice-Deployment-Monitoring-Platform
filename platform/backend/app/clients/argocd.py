@@ -106,5 +106,33 @@ class ArgoCDClient:
         except Exception as e:
             logger.error(f"Failed to fetch ArgoCD application {app_name} details: {str(e)}")
             raise ArgoCDConnectionException(f"ArgoCD connection error: {str(e)}")
+    def delete_application(self, app_name: str, cascade: bool = False) -> Dict[str, Any]:
+        self._ensure_token()
+        url = f"{self.base_url}/applications/{app_name}?cascade={str(cascade).lower()}"
+        try:
+            with httpx.Client(headers=self.headers, verify=False, timeout=5.0) as client:
+                response = client.delete(url)
+                if response.status_code not in (200, 204):
+                    raise ArgoCDConnectionException(f"ArgoCD delete application failed {response.status_code}: {response.text}")
+                return {"success": True, "message": f"ArgoCD Application '{app_name}' disconnected successfully."}
+        except Exception as e:
+            logger.error(f"Failed to delete ArgoCD application {app_name}: {str(e)}")
+            # Fallback using K8s Custom Objects API if ArgoCD API token is unavailable
+            try:
+                from app.clients.kubernetes import k8s_client
+                if k8s_client._initialized:
+                    from kubernetes import client as k8s_sdk
+                    custom_api = k8s_sdk.CustomObjectsApi()
+                    custom_api.delete_namespaced_custom_object(
+                        group="argoproj.io",
+                        version="v1alpha1",
+                        namespace="argocd",
+                        plural="applications",
+                        name=app_name
+                    )
+                    return {"success": True, "message": f"ArgoCD Application '{app_name}' disconnected via K8s CRD API."}
+            except Exception as inner_e:
+                logger.error(f"Fallback CRD deletion also failed: {str(inner_e)}")
+            raise ArgoCDConnectionException(f"ArgoCD connection error: {str(e)}")
 
 argocd_client = ArgoCDClient()

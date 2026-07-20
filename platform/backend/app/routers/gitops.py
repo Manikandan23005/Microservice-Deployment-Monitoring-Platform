@@ -141,3 +141,30 @@ async def get_argocd_application_history(
         return BaseResponse(success=True, data=data, request_id=request_id)
     except DevOpsNexusException as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+@router.post("/argocd/applications/{app_name}/disconnect", response_model=BaseResponse)
+async def disconnect_argocd_application(
+    request: Request,
+    app_name: str = Path(..., description="Target application name to disconnect from GitOps.")
+):
+    """Safely disconnects an ArgoCD application by removing tracking CRD without deleting live workloads."""
+    request_id = getattr(request.state, "request_id", None)
+    user_dict = get_current_user(request)
+    username = user_dict.get("username", "viewer")
+
+    # Requires Administrator role for GitOps disconnection
+    authz_engine.authorize(username, "gitops", "disconnect_gitops", application=app_name)
+    try:
+        data = argocd_service.delete_application(app_name, cascade=False)
+        audit_service.log_action(
+            username=username,
+            role_name=user_dict.get("role", "Viewer"),
+            action="disconnect_gitops",
+            target_resource=f"argocd/{app_name}",
+            application=app_name,
+            new_value="gitops_disconnected",
+            client_ip=request.client.host if request.client else "127.0.0.1"
+        )
+        return BaseResponse(success=True, data=data, request_id=request_id)
+    except DevOpsNexusException as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))

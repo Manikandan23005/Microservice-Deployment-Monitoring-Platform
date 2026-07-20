@@ -214,7 +214,10 @@ class ContextBuilder:
                 "name": d.get("name"),
                 "namespace": d.get("namespace"),
                 "replicas": d.get("replicas"),
-                "available_replicas": d.get("available_replicas")
+                "available_replicas": d.get("available_replicas"),
+                "gitopsManaged": d.get("gitopsManaged", False),
+                "manager": d.get("manager", "Kubernetes"),
+                "argocd_app_name": d.get("argocd_app_name")
             }
             for d in deps[:10]
         ]

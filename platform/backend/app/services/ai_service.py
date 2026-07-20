@@ -50,8 +50,9 @@ class AIService:
 
         # Force strict grounded reasoning without chatbot conversational filler
         system_prompt = (
-            "You are DevOps Nexus AI Assistant, an enterprise AIOps engine. "
+            "You are DevOps Nexus AI Assistant, an enterprise GitOps-aware AIOps engine. "
             "You answer questions ONLY using the provided runtime context and execution results. Do not invent details.\n"
+            "GITOPS RULE: You understand GitOps reconciliation. If a user asks to delete or modify a GitOps-managed deployment (`gitopsManaged == true`), explain that direct deletion from Kubernetes will only remove it temporarily because ArgoCD Self-Healing will automatically recreate it. Always recommend the GitOps-safe workflow: 'Disconnect from GitOps -> Deployment becomes Kubernetes Managed -> Delete Deployment'.\n"
             "If the context shows the cluster has no workloads or is empty, state so clearly.\n"
             "Output your entire response as a single, valid JSON object conforming exactly to this schema:\n"
             "{\n"

@@ -194,6 +194,14 @@ async def scale_deployment(
     username = user_dict.get("username") or user_dict.get("sub") or "viewer"
 
     authz_engine.authorize(username, "deployments", "scale_deployment", namespace=namespace, application=name)
+    
+    # GitOps Conflict Protection
+    if deployment_service.check_gitops_managed(namespace, name):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Operation rejected: Deployment '{name}' is managed by ArgoCD. Direct scaling violates GitOps reconciliation. Disconnect from GitOps first."
+        )
+
     try:
         data = deployment_service.scale_deployment(namespace, name, body.replicas)
         audit_service.log_action(
@@ -264,26 +272,38 @@ async def restart_pod(
 async def delete_deployment(
     request: Request,
     namespace: str = Path(..., description="Namespace scope."),
-    name: str = Path(..., description="Target deployment identifier.")
+    name: str = Path(..., description="Target deployment identifier."),
+    temporary: bool = Query(False, description="Set to true for temporary runtime maintenance deletion under ArgoCD self-healing.")
 ):
     request_id = getattr(request.state, "request_id", None)
     user_dict = get_current_user(request)
     username = user_dict.get("username") or user_dict.get("sub") or "viewer"
 
     authz_engine.authorize(username, "deployments", "delete", namespace=namespace, application=name)
+    
+    is_gitops = deployment_service.check_gitops_managed(namespace, name)
+    if is_gitops and not temporary:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Operation rejected: Deployment '{name}' is managed by ArgoCD. Direct permanent deletion violates GitOps reconciliation. Disconnect from GitOps first or use Temporary Delete."
+        )
+
     try:
         target_name = deployment_service._resolve_k8s_name(namespace, name)
         k8s_client.delete_deployment(namespace, target_name)
+        action_name = "temporary_delete" if is_gitops else "delete_deployment"
         audit_service.log_action(
             username=username,
             role_name=user_dict.get("role", "Viewer"),
-            action="delete_deployment",
+            action=action_name,
             target_resource=f"deployment/{target_name}",
             namespace=namespace,
             application=name,
+            new_value="temporary_maintenance" if temporary else "permanently_deleted",
             client_ip=request.client.host if request.client else "127.0.0.1"
         )
-        return BaseResponse(success=True, data={"message": f"Deployment {target_name} deleted successfully."}, request_id=request_id)
+        msg = f"Temporary maintenance deletion executed for {target_name}. ArgoCD Self-Healing will recreate it." if temporary else f"Deployment {target_name} deleted successfully."
+        return BaseResponse(success=True, data={"message": msg}, request_id=request_id)
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 

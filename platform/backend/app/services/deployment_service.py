@@ -7,12 +7,11 @@ class DeploymentService:
     def _resolve_k8s_name(self, namespace: str, name: str) -> str:
         """Resolves ArgoCD app alias names (e.g. auth-prod) to K8s deployment names (e.g. auth-service)."""
         try:
-            deployments = self.list_deployments(namespace)
-            dep_names = [d["name"] for d in deployments]
+            deployments = k8s_client.list_deployments(namespace)
+            dep_names = [d.metadata.name for d in deployments]
             if name in dep_names:
                 return name
             
-            # Map suffix '-prod' or '-dev' to '-service'
             clean_prefix = name.replace("-prod", "").replace("-dev", "").lower()
             for d_name in dep_names:
                 if d_name == f"{clean_prefix}-service" or clean_prefix in d_name.lower():
@@ -24,18 +23,67 @@ class DeploymentService:
 
     def list_deployments(self, namespace: Optional[str] = None) -> List[Dict[str, Any]]:
         deployments = k8s_client.list_deployments(namespace)
+        
+        # Fetch active ArgoCD applications to match ownership dynamically
+        try:
+            from app.services.argocd_service import argocd_service
+            argocd_apps = argocd_service.list_applications()
+        except Exception:
+            argocd_apps = []
+
         result = []
         for dep in deployments:
+            dep_name = dep.metadata.name
+            dep_ns = dep.metadata.namespace
+            labels = dep.metadata.labels or {}
+            annotations = dep.metadata.annotations or {}
+
+            matched_app = None
+            for app in argocd_apps:
+                app_dest_ns = app.get("destination_namespace", "devops-nexus-prod")
+                app_name = app.get("name", "")
+                clean_app_prefix = app_name.replace("-prod", "").replace("-dev", "").lower()
+                clean_dep_prefix = dep_name.replace("-service", "").lower()
+
+                if (dep_ns == app_dest_ns) and (
+                    dep_name == app_name or
+                    dep_name == f"{clean_app_prefix}-service" or
+                    clean_app_prefix == clean_dep_prefix or
+                    labels.get("app.kubernetes.io/instance") == app_name or
+                    annotations.get("argocd.argoproj.io/tracking-id", "").startswith(app_name)
+                ):
+                    matched_app = app
+                    break
+
+            gitops_managed = matched_app is not None
+
             result.append({
-                "name": dep.metadata.name,
-                "namespace": dep.metadata.namespace,
+                "name": dep_name,
+                "namespace": dep_ns,
+                "status": "Running" if (dep.status.available_replicas or 0) > 0 else "Pending",
                 "replicas": dep.spec.replicas,
                 "ready_replicas": dep.status.ready_replicas or 0,
                 "updated_replicas": dep.status.updated_replicas or 0,
                 "available_replicas": dep.status.available_replicas or 0,
-                "creation_timestamp": dep.metadata.creation_timestamp.isoformat() if dep.metadata.creation_timestamp else None
+                "creation_timestamp": dep.metadata.creation_timestamp.isoformat() if dep.metadata.creation_timestamp else None,
+                "gitopsManaged": gitops_managed,
+                "manager": "ArgoCD" if gitops_managed else "Kubernetes",
+                "argocd_app_name": matched_app.get("name") if matched_app else None,
+                "repo_url": matched_app.get("repo_url") if matched_app else None,
+                "targetRevision": matched_app.get("targetRevision", "HEAD") if matched_app else None,
+                "sync_status": matched_app.get("sync_status", "Synced") if matched_app else None,
+                "health_status": matched_app.get("health_status", "Healthy") if matched_app else None,
             })
         return result
+
+    def check_gitops_managed(self, namespace: str, name: str) -> bool:
+        """Determines if target deployment is actively managed by ArgoCD."""
+        deps = self.list_deployments(namespace)
+        target_name = self._resolve_k8s_name(namespace, name)
+        for d in deps:
+            if d["name"] == target_name or d.get("argocd_app_name") == name:
+                return d.get("gitopsManaged", False)
+        return False
 
     def restart_deployment(self, namespace: str, name: str) -> Dict[str, Any]:
         target_name = self._resolve_k8s_name(namespace, name)

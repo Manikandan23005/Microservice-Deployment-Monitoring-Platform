@@ -109,6 +109,11 @@ export const api = {
     return [];
   },
 
+  disconnectGitOpsApp: async (appName: string): Promise<any> => {
+    const response = await apiClient.post(`/api/v1/gitops/argocd/applications/${appName}/disconnect`);
+    return response.data;
+  },
+
   getDeployments: async (ns?: string, scopeParams?: Record<string, string>): Promise<any[]> => {
     try {
       const params = new URLSearchParams(scopeParams || {});
@@ -353,9 +358,9 @@ export const api = {
     }
   },
 
-  deleteDeployment: async (namespace: string, name: string): Promise<boolean> => {
+  deleteDeployment: async (namespace: string, name: string, temporary: boolean = false): Promise<boolean> => {
     try {
-      const response = await apiClient.delete(`/api/v1/k8s/deployments/${namespace}/${name}`);
+      const response = await apiClient.delete(`/api/v1/k8s/deployments/${namespace}/${name}?temporary=${temporary}`);
       return !!(response.data && response.data.success);
     } catch (e: any) {
       console.error(`Failed to delete deployment ${name}:`, e);

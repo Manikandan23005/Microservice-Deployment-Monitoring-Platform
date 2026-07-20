@@ -69,4 +69,10 @@ class ArgoCDService:
             logger.info(f"ArgoCD offline. Returning empty deployment histories list for {app_name}.")
             return []
 
+    def delete_application(self, app_name: str, cascade: bool = False) -> Dict[str, Any]:
+        try:
+            return argocd_client.delete_application(app_name, cascade=cascade)
+        except ArgoCDConnectionException as e:
+            raise e
+
 argocd_service = ArgoCDService()
