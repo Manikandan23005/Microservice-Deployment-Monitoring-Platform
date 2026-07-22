@@ -601,6 +601,7 @@ export const api = {
   },
 
   generateExecutionPlan: async (actionType: string, targetResource: string, namespace?: string, parameters?: any): Promise<any> => {
+    if (!actionType || !targetResource) return null;
     const response = await apiClient.post('/api/v1/ai/plan/generate', {
       action_type: actionType,
       target_resource: targetResource,

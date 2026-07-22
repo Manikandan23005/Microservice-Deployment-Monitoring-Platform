@@ -266,11 +266,12 @@ export const AICopilotDrawer: React.FC = () => {
 
       // 2. Generate Plan if incident detected
       let planData = null;
-      if (invData && invData.suggested_plan) {
+      const planAction = invData?.suggested_plan?.action_type || invData?.suggested_plan?.action;
+      if (invData && invData.suggested_plan && planAction) {
         planData = await api.generateExecutionPlan(
-          invData.suggested_plan.action,
-          invData.target_resource,
-          invData.target_namespace
+          planAction,
+          invData.target_resource || 'auth-service',
+          invData.target_namespace || 'devops-nexus-prod'
         );
       }
 
