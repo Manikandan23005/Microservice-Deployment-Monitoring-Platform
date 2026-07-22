@@ -1,0 +1,7 @@
+{
+  "name": "minikube-local",
+  "environment": "Development",
+  "api_server": "https://192.168.49.2:8443",
+  "provider": "Minikube",
+  "status": "Healthy"
+}

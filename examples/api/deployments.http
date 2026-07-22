@@ -1,0 +1,3 @@
+### Get Deployments List
+GET http://localhost:8000/api/v1/deployments?namespace=devops-nexus-prod
+Authorization: Bearer {{token}}

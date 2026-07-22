@@ -1,0 +1,14 @@
+{
+  "incident_type": "Database Connection Timeout",
+  "severity": "High",
+  "root_cause": "payment-service pods failed to resolve postgresql:5432 host.",
+  "evidence_quality": "HIGH",
+  "evidence": [
+    "Loki Log: psycopg2.OperationalError: could not connect to server",
+    "Prometheus Metric: error_rate spike to 100%"
+  ],
+  "suggested_plan": {
+    "action": "Restart payment-service rollout & verify PostgreSQL service endpoint",
+    "target_resource": "payment-service"
+  }
+}

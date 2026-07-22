@@ -1,0 +1,24 @@
+{
+  "Administrator": [
+    "read",
+    "write",
+    "delete",
+    "sync",
+    "scale",
+    "admin"
+  ],
+  "Platform Engineer": [
+    "read",
+    "write",
+    "sync",
+    "scale"
+  ],
+  "DevOps Engineer": [
+    "read",
+    "write",
+    "sync"
+  ],
+  "Viewer": [
+    "read"
+  ]
+}

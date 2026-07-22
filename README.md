@@ -1,264 +1,159 @@
-# DevOps Nexus
+# 🚀 DevOps Nexus v1.0 — Enterprise Autonomous AIOps & GitOps Platform
 
-<div align="center">
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Release](https://img.shields.io/badge/Release-v1.0.0-emerald.svg)](CHANGELOG.md)
+[![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen.svg)](docs/15-administrator-guide.md)
+[![Build](https://img.shields.io/badge/Build-Passing-success.svg)](#-verification--testing)
+[![Architecture](https://img.shields.io/badge/Architecture-Distributed%20Microservices-indigo.svg)](docs/03-system-architecture.md)
 
-<!-- Project Logo Placeholder -->
-```
-      ____                 ____              _   _
-     |  _ \  _____   __   / ___|  _ __  ___ | \ | | _____  ___ _   _ ___
-     | | | |/ _ \ \ / /   \___ \ | '_ \/ _ \|  \| |/ _ \ \/ / | | | / __|
-     | |_| |  __/\ V /     ___) || |_) | (_) | |\  |  __/>  <| |_| \__ \
-     |____/ \___| \_/     |____/ | .__/ \___/|_| \_|\___/_/\_\\__,_|___/
-                                 |_|
-```
-
-*An AI-Powered GitOps Deployment & Observability Platform*
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Kubernetes](https://img.shields.io/badge/kubernetes-%23326ce5.svg?style=flat&logo=kubernetes&logoColor=white)](https://kubernetes.io)
-[![ArgoCD](https://img.shields.io/badge/ArgoCD-%23ef7b4d.svg?style=flat&logo=argo&logoColor=white)](https://argoproj.github.io/cd/)
-[![Prometheus](https://img.shields.io/badge/Prometheus-E6522C?style=flat&logo=Prometheus&logoColor=white)](https://prometheus.io)
-[![Grafana](https://img.shields.io/badge/Grafana-F46800?style=flat&logo=Grafana&logoColor=white)](https://grafana.com)
-[![Status: Active Development](https://img.shields.io/badge/Status-Active_Development-blue.svg)](#)
-
-</div>
+**DevOps Nexus** is a production-grade, open-source enterprise platform that unifies **Kubernetes Cluster Operations**, **ArgoCD GitOps Control Plane**, **Nexus AI Autonomous Incident Investigation**, **Grafana/Prometheus Telemetry**, and **Loki Log Analytics** into a handcrafted operations cockpit.
 
 ---
 
-## 📖 Project Overview
-
-**DevOps Nexus** is a self-hosted, enterprise-grade Internal Developer Platform (IDP) designed to unify CI/CD pipelines, container orchestration, declarative GitOps, full-stack observability, and automated AI incident analysis into a single, cohesive developer workspace.
-
-The core of the platform is containerized, managed with Poetry, and built on a **FastAPI backend** and a **React + Vite + TypeScript frontend** that operates as an intelligent Kubernetes controller, deployment manager, and telemetry dashboard in one place.
-
----
-
-## ⚠️ Problem Statement
-
-Modern microservice operations suffer from **toolchain fragmentation**. Troubleshooting service issues require developers to bounce between 5+ portals (GitHub Actions, ArgoCD, Prometheus, Loki, K8s CLI, etc.). DevOps Nexus solves this by compiling all tools into a single, unified developer platform.
-
----
-
-## 🏗️ Architecture Flow
+## 🏛️ System Architecture
 
 ```
-Developer
-    │
-    ▼
-Git Push
-    │
-    ▼
-GitHub Actions (CI)
-    │
-    ▼
-Docker Build & Push ──► Container Registry
-    │
-    ▼
-Update Helm Chart Configs
-    │
-    ▼
-GitOps Repository (ArgoCD monitors)
-    │
-    ▼
-ArgoCD Engine (Continuous Delivery syncs)
-    │
-    ▼
-Kubernetes Cluster Runtime (gateway, auth, orders, users...)
-    ▲
-    │ (Telemetry monitoring scrapers)
-    ▼
-Prometheus & Loki Logs
-    ▲
-    │
-    ▼
-=============================================================
-               DEVOPS NEXUS PLATFORM (v0.2.0)
-=============================================================
-React + Vite UI (Frontend client)
-    │
-    ▼
-FastAPI API Gateway (Backend client orchestrator)
-    │
-    ├─► Kubernetes Cluster API (Pod control / Rollbacks)
-    ├─► Prometheus & Loki API (Observability aggregators)
-    ├─► ArgoCD API (Application syncing states)
-    └─► Pluggable AI Service (Local Ollama / Remote OpenAI)
-=============================================================
+                                  +---------------------------------------+
+                                  |     DevOps Nexus Frontend Platform     |
+                                  |   (React 18 + TS + Enterprise Design) |
+                                  +-------------------+-------------------+
+                                                      |
+                                          HTTP / REST | (JWT Auth & Scope)
+                                                      v
+                                  +---------------------------------------+
+                                  |     DevOps Nexus Backend Platform     |
+                                  |    (FastAPI + Async Python 3.10+)     |
+                                  +----+--------------+---------------+---+
+                                       |              |               |
+             +-------------------------+              |               +--------------------------+
+             |                                        |                                          |
+             v                                        v                                          v
++------------------------+              +---------------------------+              +----------------------------+
+|  Nexus AI Autonomous   |              |  GitOps Control Plane     |              |  Observability Platform    |
+|  Investigation Engine  |              |  & Multi-Cluster Registry |              |  Prometheus & Loki Stack   |
+|  - Root Cause Analysis |              |  - ArgoCD Applications    |              |  - 8 Telemetry SVGs        |
+|  - Execution Plans     |              |  - K8s API Fallbacks      |              |  - Live Log Streams        |
+|  - Health Verification |              |  - RBAC Policy Guardrails |              |  - AlertManager Alerts     |
++------------------------+              +---------------------------+              +----------------------------+
+             |                                        |                                          |
+             +----------------------------------------+------------------------------------------+
+                                                      |
+                                                      v
+                                  +---------------------------------------+
+                                  |    Target Kubernetes Infrastructure   |
+                                  |   (Minikube / EKS / GKE / AKS / K3s)  |
+                                  +---------------------------------------+
 ```
 
 ---
 
-## 🛠️ Technology Stack
+## ⚡ One-Command Quick Start
 
-| Layer | Technology |
-|---|---|
-| **Platform Backend** | FastAPI + Uvicorn |
-| **Platform Frontend** | React.js + Vite + TypeScript |
-| **Package Manager** | Poetry |
-| **Containerization** | Docker / Docker Compose |
-| **Orchestration** | Kubernetes |
-| **Continuous Delivery** | Argo CD |
-| **Packaging** | Helm |
-| **Observability** | Prometheus, Grafana, Loki |
-| **AI Incident Analysis** | Pluggable Engine (Ollama, OpenAI, Groq, LM Studio) |
+Install, validate, and launch the complete DevOps Nexus v1.0 platform with a single command:
 
----
-
-## 🗺️ Roadmap
-
-* [v0.1.0] **Initial Project Skeleton:** Setup directory layouts and stubs. (DONE)
-* [v0.2.0] **Unified Platform Architecture:** Integrate Poetry, FastAPI, React+Vite+TS stubs, and root orchestration definitions. (CURRENT)
-* [v0.3.0] **Platform Backend Integrations:** Connect FastAPI to Kubernetes API client, ArgoCD, and Prometheus endpoints.
-* [v0.4.0] **React Portal UI:** Implement dashboard telemetry grids and log consoles in TSX.
-* [v0.5.0] **AI Diagnostics Engine:** Integrate pluggable LLM wrappers supporting local Ollama models.
-
----
-
-## ⚙️ Installation & Running Guides
-
-Refer to [INSTALLATION.md](INSTALLATION.md) for detailed prerequisites. Below are the quick guides:
-
-### 1. Running Locally (Development Mode)
-To run the components bare-metal for development:
-
-**Backend Setup:**
 ```bash
-# Configure local virtual environment
-poetry install
-
-# Set local configurations
-export PORT=8000
-export AI_PROVIDER=ollama
-export REDIS_URL=redis://localhost:6379/0
-
-# Start FastAPI server
-poetry run uvicorn platform.backend.app.main:app --host 0.0.0.0 --port 8000 --reload
+git clone https://github.com/Manikandan23005/Microservice-Deployment-Monitoring-Platform.git
+cd Microservice-Deployment-Monitoring-Platform
+./install.sh
 ```
 
-**Frontend Setup:**
+### Pre-Install System Check Only
+To run system prerequisite diagnostics without starting containers:
 ```bash
-cd platform/frontend
-npm install
-npm run dev
+./install.sh --validate-only
 ```
-Open [http://localhost:5173](http://localhost:5173) in your browser.
 
 ---
 
-### 2. Running via Docker Compose
-To build and start the entire multi-service orchestrator:
+## 🌐 Platform Endpoints & Credentials
+
+Once launched, access the platform components at:
+
+| Component | URL | Default Credentials |
+|-----------|-----|---------------------|
+| **Frontend Platform UI** | [http://localhost:3000](http://localhost:3000) | `admin` / `admin123` |
+| **Backend API Docs (Swagger)** | [http://localhost:8000/docs](http://localhost:8000/docs) | N/A (Bearer Token) |
+| **Grafana Telemetry Dashboards** | [http://localhost:3200](http://localhost:3200) | `admin` / `admin` |
+| **Prometheus Telemetry Engine** | [http://localhost:9090](http://localhost:9090) | N/A |
+| **Loki Log Aggregator** | [http://localhost:3100](http://localhost:3100) | Header: `X-Scope-OrgID: fake` |
+
+---
+
+## ✨ Key Enterprise Capabilities
+
+1. **Nexus AI Autonomous Copilot Drawer (`Ctrl + Shift + K`)**
+   - Grounded incident diagnostics synthesizing K8s pod status, Prometheus metric spikes, and Loki error logs.
+   - Generates executable remediation plans with downtime estimates and automated health verification.
+   - Interactive `CONFIRM` prompt for destructive lifecycle actions.
+
+2. **GitOps Operations Control Plane**
+   - Real-time GitOps ownership badges (🟢 GitOps Managed / ⚪ Kubernetes Managed).
+   - ArgoCD application sync, revision commit timeline, and RBAC-enforced scaling/rollbacks.
+
+3. **Grafana-Grade Observability Platform**
+   - 8 live SVG area charts: CPU, Memory, Network I/O, Disk Usage, Request Rate, Error Rate, P95 Latency, and Active Pods.
+   - KPI summary cards with time range controls (`1h`, `6h`, `24h`) and category filter tabs.
+
+4. **Loki Log Streaming & K8s API Fallback**
+   - Query Pod logs via Loki LogQL with automatic fallback to live Kubernetes API streams when Loki has no data.
+
+5. **Multi-Cluster Registry**
+   - Register, manage, and monitor multiple Kubernetes clusters with context switching and health heartbeats.
+
+6. **Spotlight Command Palette (`Ctrl + K`)**
+   - Instant global search across workloads, pages, and AI investigation commands.
+
+---
+
+## 🛠️ Operational CLI Utilities
+
+| Utility | Command | Purpose |
+|---------|---------|---------|
+| **Installer** | `./install.sh` | Automated pre-checks, DB init, seeding, and launch |
+| **Health Check** | `./scripts/healthcheck.sh` | 13-point subsystem diagnostic check |
+| **State Backup** | `./scripts/backup.sh` | Exports DB, env config, and K8s manifests to tarball |
+| **State Restore** | `./scripts/restore.sh <archive>` | Restores state from backup tarball |
+| **Support Bundle** | `./scripts/diagnostics.sh` | Generates diagnostics bundle for issue resolution |
+| **Safe Upgrade** | `./scripts/upgrade.sh` | Pre-upgrade backup, container rebuild, and schema migration |
+
+---
+
+## 📚 Documentation Index
+
+Explore the complete enterprise documentation suite in [`docs/`](docs/):
+
+- 📋 [01-prerequisites.md](docs/01-prerequisites.md) — System requirements & Docker setup
+- 🚀 [02-installation.md](docs/02-installation.md) — Production installation guide
+- 🏗️ [03-system-architecture.md](docs/03-system-architecture.md) — Platform architectural design
+- 🔀 [04-ci-cd-gitops.md](docs/04-ci-cd-gitops.md) — GitOps pipelines & GitHub Actions
+- ☸️ [05-kubernetes-integration.md](docs/05-kubernetes-integration.md) — K8s integration & workload management
+- 📊 [06-observability.md](docs/06-observability.md) — Prometheus, Loki, & Grafana setup
+- 🧠 [07-nexus-ai.md](docs/07-nexus-ai.md) — Autonomous AIOps reasoning engine guide
+- 🛠️ [08-troubleshooting.md](docs/08-troubleshooting.md) — Diagnostics & self-healing guide
+- 🗺️ [09-roadmap.md](docs/09-roadmap.md) — Future feature roadmap
+- ❓ [10-faq.md](docs/10-faq.md) — Frequently asked questions
+- 🔌 [11-api-reference.md](docs/11-api-reference.md) — Complete REST API specification
+- 🛡️ [12-rbac-security.md](docs/12-rbac-security.md) — RBAC model & security review
+- 🔀 [13-gitops-cluster-registry.md](docs/13-gitops-cluster-registry.md) — Multi-cluster & ArgoCD guide
+- 💻 [14-developer-guide.md](docs/14-developer-guide.md) — Local development & design tokens
+- 🔧 [15-administrator-guide.md](docs/15-administrator-guide.md) — Operations, backups, & upgrades
+
+---
+
+## 🧪 Verification & Testing
+
+Verify system integrity using automated test suites:
+
 ```bash
-# Copy and verify environment configs
-cp .env.example .env
+# Run Backend Pytest Suite (30 Test Cases)
+./poetry-venv/bin/poetry run pytest
 
-# Spin up platform containers
-docker compose up --build -d
+# Build Frontend Bundle (TypeScript & Vite Verification)
+cd platform/frontend && npm run build
 ```
-Access the dashboard on port `3000` and Swagger docs on `http://localhost:8000/docs`.
 
 ---
 
-### 3. Running on Kubernetes
-To deploy the platform workloads to your cluster (e.g., Minikube or Kind):
-```bash
-# Deploy Helm chart releases
-helm upgrade --install devops-nexus ./helm/charts/devops-nexus --namespace devops-nexus --create-namespace
+## 📄 License & Community
 
-# Port forward backend service
-kubectl port-forward svc/devops-nexus-backend 8000:8000 -n devops-nexus
-```
-
-
----
-
-## 📂 Folder Structure
-
-```
-DevOps-Nexus/
-├── platform/              # Core Unified DevOps Platform
-│   ├── frontend/          # React + Vite + TS UI Client
-│   ├── backend/           # FastAPI Python Backend
-│   └── shared/            # Common Models and Settings Configurations
-├── applications/          # The microservices under deployment (auth, orders, etc.)
-├── docs/                  # Engineering reference documentation
-├── kubernetes/            # Core declarative YAML templates (stubs)
-├── helm/                  # Parametrizing multi-environment templates via Helm
-├── gitops/                # Environment application templates for ArgoCD
-├── monitoring/            # Configuration stubs for Grafana/Prometheus/Loki/Alertmanager
-├── ai/                    # AI incident analyzer model designs
-├── scripts/               # Operation automation tools (setup.sh, rollback.sh, etc.)
-├── assets/                # Design assets and logos
-├── .github/               # GitHub Actions pipeline definition
-├── pyproject.toml         # Poetry package configurations
-├── Dockerfile             # Multi-stage platform backend Dockerfile
-└── docker-compose.yml     # Project orchestration stack
-```
----
-
-## 🤖 AI Operations (AIOps) Engine Specifications
-
-DevOps Nexus features a production-grade, runtime-aware AI Operations Engine that correlates live cluster configuration, Kubernetes status, Prometheus metrics, Loki log streams, and ArgoCD GitOps sync states.
-
-### 1. AI Architecture
-The engine consists of:
-- **Intelligent Request Router:** Classifies prompts into 24 distinct operational categories and determines target services to query.
-- **Smart Context Builder:** Selectively queries Kubernetes resources, metrics, logs, and GitOps application data based on active query categories. It uses a thread-safe, TTL-based caching layer (5s default) to shield cluster APIs from storming.
-- **Conversational Memory Manager:** Maintains thread-safe, in-memory chat session history and automatically resolves reference pronouns/entities across conversational turns (e.g. resolving "its logs" to the service analyzed in the previous turn).
-- **Incident Analysis Pipeline:** Scans telemetry data using rule-based diagnostics to identify `CrashLoopBackOff`, `OOMKilled`, `ImagePullBackOff`, pending pods, mismatched desired/ready replica counts, high utilization, and GitOps drifts, forwarding these as structured focus alerts to the LLM.
-
-### 2. Runtime Context Flow & Correlation
-The engine correlates structured cluster data dynamically:
-```
-  User Query ──► Request Router ──► Context Builder (Cached APIs)
-                                           │
-                                           ├─► Pods status (K8s API)
-                                           ├─► CPU/Memory gauges (Prometheus)
-                                           ├─► Sync health (ArgoCD)
-                                           └─► Container stdout logs (Loki)
-                                           │
-  AI Response ◄── LLM Completion ◄── Prompt Pipeline (Session Memory)
-```
-
-### 3. Response Schema
-All backend chat API endpoints return structured JSON conforming to the following schema:
-```json
-{
-  "summary": "Short 1-sentence summary of the current operational status.",
-  "root_cause": "Detailed explanation of the resource or query grounded solely in the context.",
-  "evidence": ["Specific metric values, status phases, or logs from the context"],
-  "affected_resources": ["List of Kubernetes resources affected"],
-  "recommendations": ["Actionable remediation steps to fix the issue"],
-  "severity": "Info | Warning | Critical",
-  "confidence": 100
-}
-```
-
-### 4. Supported AI Queries
-- *"Why is payment-service restarting?"* (Trigger Event log analysis and restarts audits).
-- *"Which pods have high CPU?"* (Queries Prometheus cluster metrics).
-- *"Show recent payment logs"* (Streams Loki container logs).
-- *"Show GitOps status"* (Fetches ArgoCD application status & revisions).
-
-### 5. Known Limitations
-- LLM completion speed is bounded by the upstream completions API provider latency.
-- Direct SSH/exec actions (e.g., shell commands triggers) are not automatically executed; suggestions must be explicitly confirmed by the operator using the UI dashboard card Suggested Actions.
-
----
-
-## 🔐 Operator Role Credentials (v1.0.0-rc1)
-
-In production mode, the platform enforces strict JWT authentication. Log in using the following preset accounts:
-
-- **Administrator:** `admin` / `admin123` (Full write/read/settings privileges)
-- **DevOps Engineer:** `devops` / `devops123` (Deployments, scaling, logs, and GitOps controls)
-- **Developer:** `developer` / `developer123` (Deployments view & scaling; GitOps blocked)
-- **Read Only:** `viewer` / `viewer123` (Read-only dashboard view; all trigger controls disabled)
-
----
-
-## 📈 Platform Instrumentation telemetry
-
-Custom SRE performance and latency metrics are collected dynamically. Query the metrics endpoint:
-- **Endpoint:** `GET http://localhost:8000/api/v1/monitoring/platform-metrics` (Requires Admin/DevOps/Developer JWT token)
-- **Output:** Average request latency, error ratios, cache hit percentages, AI response duration, and tool execution cost.
-
+DevOps Nexus is released under the [MIT License](LICENSE). Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for details.

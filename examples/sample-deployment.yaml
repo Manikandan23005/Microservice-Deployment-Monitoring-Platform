@@ -1,0 +1,32 @@
+# DevOps Nexus v1.0 — Example Kubernetes Deployment Manifest
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sample-workload
+  namespace: devops-nexus-prod
+  labels:
+    app.kubernetes.io/name: sample-workload
+    app.kubernetes.io/instance: sample-workload
+    app.kubernetes.io/managed-by: ArgoCD
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: sample-workload
+  template:
+    metadata:
+      labels:
+        app: sample-workload
+    spec:
+      containers:
+      - name: sample-container
+        image: nginx:alpine
+        ports:
+        - containerPort: 80
+        resources:
+          limits:
+            cpu: "250m"
+            memory: "256Mi"
+          requests:
+            cpu: "100m"
+            memory: "128Mi"

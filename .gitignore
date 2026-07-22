@@ -73,8 +73,13 @@ dashboard/frontend/build/
 dashboard/backend/venv/
 applications/*/venv/
 applications/*/node_modules/
+poetry-venv/
+format-venv/
+backups/
+diagnostics/
 /assets/*.png
 /assets/*.jpg
 /assets/*.gif
 /assets/*.mp4
 !/assets/README.md
+

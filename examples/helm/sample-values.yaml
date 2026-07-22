@@ -1,0 +1,20 @@
+# DevOps Nexus v1.0 Helm Values Example
+global:
+  environment: production
+  domain: nexus.local
+
+backend:
+  replicaCount: 2
+  image:
+    repository: devopsnexus/backend
+    tag: v1.0.0
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+frontend:
+  replicaCount: 2
+  image:
+    repository: devopsnexus/frontend
+    tag: v1.0.0

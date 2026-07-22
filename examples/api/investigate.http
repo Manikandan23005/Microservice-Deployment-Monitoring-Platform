@@ -1,0 +1,11 @@
+### Trigger Nexus AI Incident Investigation
+POST http://localhost:8000/api/v1/ai/investigate
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "query": "Why is auth-service restarting?",
+  "target_resource": "auth-service",
+  "target_kind": "deployment",
+  "namespace": "devops-nexus-prod"
+}

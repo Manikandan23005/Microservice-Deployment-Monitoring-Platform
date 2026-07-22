@@ -1,0 +1,6 @@
+{
+  "query": "Investigate CrashLoopBackOff in payment-service",
+  "target_resource": "payment-service",
+  "target_kind": "deployment",
+  "namespace": "devops-nexus-prod"
+}

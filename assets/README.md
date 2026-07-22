@@ -1,11 +1,20 @@
-# DevOps Nexus Assets Store
+# 🎨 DevOps Nexus v1.0 — Platform Assets & Branding Library
 
-## Overview
-This directory stores static media resources, screenshots, and visual architecture models utilized in project README and documentation layouts.
+This directory contains branding assets, user interface screenshots, logos, icons, and demonstration media for **DevOps Nexus v1.0**.
 
-## Guidelines
-- **Formats:** Use `.png` or compressed `.svg` for diagrams, and `.gif` / `.mp4` for demonstration recordings.
-- **Organization:** Name files descriptively using lowercase and hyphens:
-  - `architecture-diagram.png`
-  - `dashboard-preview.png`
-- **Exclusion:** Large media files should be tracked via Git Large File Storage (LFS) or hosted externally to keep the clone bundle lightweight.
+---
+
+## 📁 Directory Structure & Category Index
+
+| Subdirectory | Category Contents & Purpose |
+|--------------|-----------------------------|
+| [`logos/`](logos/) | Platform branding logos (`logo.svg`, `logo-dark.svg`, `logo-light.svg`, `favicon.ico`) |
+| [`screenshots/`](screenshots/) | UI screenshots (`dashboard.png`, `pods.png`, `deployments.png`, `metrics.png`, `copilot.png`, `clusters.png`) |
+| [`icons/`](icons/) | Component UI icons & vector assets |
+| [`banners/`](banners/) | Open-source GitHub repository banner images |
+| [`demo/`](demo/) | Platform demonstration recordings (`demo.gif`, `demo.mp4`) |
+
+---
+
+## ⚖️ License & Usage
+All branding assets in this directory are property of the DevOps Nexus open-source project and are subject to the platform [MIT License](../LICENSE).

@@ -1,0 +1,7 @@
+{
+  "name": "baremetal-prod-01",
+  "environment": "Production",
+  "api_server": "https://10.0.0.100:6443",
+  "provider": "Kubeadm",
+  "status": "Healthy"
+}
