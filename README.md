@@ -102,13 +102,31 @@ docker-compose up -d
 
 ---
 
-## 📚 Documentation Links
+## 📚 Complete Platform Documentation Catalog
 
-* 🏗️ [System Architecture](file:///home/satoru/Projects/Microservice-Deployment-Monitoring-Platform/architecture/system_architecture.md)
-* 🧠 [Autonomous AI Engine Specs](file:///home/satoru/Projects/Microservice-Deployment-Monitoring-Platform/architecture/ai_architecture.md)
-* 🔄 [GitOps Control Plane Specs](file:///home/satoru/Projects/Microservice-Deployment-Monitoring-Platform/architecture/gitops_architecture.md)
-* 📊 [Observability & Telemetry Specs](file:///home/satoru/Projects/Microservice-Deployment-Monitoring-Platform/architecture/observability_architecture.md)
-* 📖 [Full Documentation Catalog](file:///home/satoru/Projects/Microservice-Deployment-Monitoring-Platform/docs/01-prerequisites.md)
+### 🏛️ Architecture Specifications (`architecture/`)
+* 🏗️ **System Architecture**: [system_architecture.md](architecture/system_architecture.md) ([local link](file:///home/satoru/Projects/Microservice-Deployment-Monitoring-Platform/architecture/system_architecture.md))
+* 🧠 **Autonomous AIOps Engine Specs**: [ai_architecture.md](architecture/ai_architecture.md) ([local link](file:///home/satoru/Projects/Microservice-Deployment-Monitoring-Platform/architecture/ai_architecture.md))
+* 🔄 **GitOps Control Plane Specs**: [gitops_architecture.md](architecture/gitops_architecture.md) ([local link](file:///home/satoru/Projects/Microservice-Deployment-Monitoring-Platform/architecture/gitops_architecture.md))
+* 📊 **Observability & Telemetry Specs**: [observability_architecture.md](architecture/observability_architecture.md) ([local link](file:///home/satoru/Projects/Microservice-Deployment-Monitoring-Platform/architecture/observability_architecture.md))
+* 📁 **Architecture Catalog**: [architecture/README.md](architecture/README.md) ([local link](file:///home/satoru/Projects/Microservice-Deployment-Monitoring-Platform/architecture/README.md))
+
+### 📖 User & Operations Guides (`docs/`)
+* 📋 **01 — Prerequisites**: [docs/01-prerequisites.md](docs/01-prerequisites.md) ([local link](file:///home/satoru/Projects/Microservice-Deployment-Monitoring-Platform/docs/01-prerequisites.md))
+* ⚙️ **02 — Installation Guide**: [docs/02-installation.md](docs/02-installation.md) ([local link](file:///home/satoru/Projects/Microservice-Deployment-Monitoring-Platform/docs/02-installation.md))
+* 🏗️ **03 — System Architecture Guide**: [docs/03-system-architecture.md](docs/03-system-architecture.md) ([local link](file:///home/satoru/Projects/Microservice-Deployment-Monitoring-Platform/docs/03-system-architecture.md))
+* 🔄 **04 — GitOps & CI/CD Guide**: [docs/04-ci-cd-gitops.md](docs/04-ci-cd-gitops.md) ([local link](file:///home/satoru/Projects/Microservice-Deployment-Monitoring-Platform/docs/04-ci-cd-gitops.md))
+* ☸️ **05 — Kubernetes Integration**: [docs/05-kubernetes-integration.md](docs/05-kubernetes-integration.md) ([local link](file:///home/satoru/Projects/Microservice-Deployment-Monitoring-Platform/docs/05-kubernetes-integration.md))
+* 📊 **06 — Observability Guide**: [docs/06-observability.md](docs/06-observability.md) ([local link](file:///home/satoru/Projects/Microservice-Deployment-Monitoring-Platform/docs/06-observability.md))
+* 🧠 **07 — AIOps Assistant Guide**: [docs/07-nexus-ai.md](docs/07-nexus-ai.md) ([local link](file:///home/satoru/Projects/Microservice-Deployment-Monitoring-Platform/docs/07-nexus-ai.md))
+* 🛠️ **08 — Troubleshooting Guide**: [docs/08-troubleshooting.md](docs/08-troubleshooting.md) ([local link](file:///home/satoru/Projects/Microservice-Deployment-Monitoring-Platform/docs/08-troubleshooting.md))
+* 🗺️ **09 — Platform Roadmap**: [docs/09-roadmap.md](docs/09-roadmap.md) ([local link](file:///home/satoru/Projects/Microservice-Deployment-Monitoring-Platform/docs/09-roadmap.md))
+* ❓ **10 — Frequently Asked Questions**: [docs/10-faq.md](docs/10-faq.md) ([local link](file:///home/satoru/Projects/Microservice-Deployment-Monitoring-Platform/docs/10-faq.md))
+* 🔌 **11 — API Reference Specification**: [docs/11-api-reference.md](docs/11-api-reference.md) ([local link](file:///home/satoru/Projects/Microservice-Deployment-Monitoring-Platform/docs/11-api-reference.md))
+* 🔐 **12 — RBAC & Security Specifications**: [docs/12-rbac-security.md](docs/12-rbac-security.md) ([local link](file:///home/satoru/Projects/Microservice-Deployment-Monitoring-Platform/docs/12-rbac-security.md))
+* ☸️ **13 — GitOps Cluster Registry Guide**: [docs/13-gitops-cluster-registry.md](docs/13-gitops-cluster-registry.md) ([local link](file:///home/satoru/Projects/Microservice-Deployment-Monitoring-Platform/docs/13-gitops-cluster-registry.md))
+* 💻 **14 — Developer Guide**: [docs/14-developer-guide.md](docs/14-developer-guide.md) ([local link](file:///home/satoru/Projects/Microservice-Deployment-Monitoring-Platform/docs/14-developer-guide.md))
+* 🛡️ **15 — Administrator Guide**: [docs/15-administrator-guide.md](docs/15-administrator-guide.md) ([local link](file:///home/satoru/Projects/Microservice-Deployment-Monitoring-Platform/docs/15-administrator-guide.md))
 
 ---
 
