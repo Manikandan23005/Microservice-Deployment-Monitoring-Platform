@@ -7,17 +7,34 @@ from shared.exceptions import TelemetryFetchException
 from app.core.logging import logger
 
 class LogService:
-    def get_logs(self, pod_name: str, search: Optional[str] = None, limit: int = 100) -> List[Dict[str, Any]]:
+    def get_logs(self, pod_name: str, search: Optional[str] = None, limit: int = 100, scope: Optional[Any] = None, container: Optional[str] = None) -> List[Dict[str, Any]]:
         """Queries Loki log streams for pods, with live Kubernetes API log stream fallback."""
         result = []
 
         # 1. Format LogQL selector
-        if not pod_name or pod_name == "all":
-            logql = '{app=~".+"}'
-        elif pod_name.startswith("{"):
-            logql = pod_name
+        logql_clause = []
+        if scope:
+            from app.services.scope_engine import scope_engine
+            target_namespaces = scope.get_effective_namespaces()
+            if target_namespaces:
+                ns_regex = "|".join(target_namespaces)
+                logql_clause.append(f'namespace=~"{ns_regex}"')
+            
+            scope_mode = getattr(scope, "mode", None)
+            mode_val = getattr(scope_mode, "value", str(scope_mode or "")) if scope_mode else "cluster"
+            if mode_val == "app" and scope.application:
+                logql_clause.append(f'app=~"{scope.application}.*"')
+                
+        if pod_name and pod_name != "all" and not pod_name.startswith("{"):
+            logql_clause.append(f'pod="{pod_name}"')
+            
+        if container:
+            logql_clause.append(f'container="{container}"')
+            
+        if logql_clause:
+            logql = "{" + ", ".join(logql_clause) + "}"
         else:
-            logql = f'{{pod="{pod_name}"}}'
+            logql = '{app=~".+"}'
 
         if search:
             logql += f' |= "{search}"'
@@ -45,19 +62,22 @@ class LogService:
         # 3. Fallback to Live Kubernetes API Pod Logs
         try:
             pods = pod_service.list_pods()
-            target_pods = pods
-            if pod_name and pod_name != "all" and not pod_name.startswith("{"):
-                matched = [p for p in pods if pod_name.lower() in p.get("name", "").lower()]
-                if matched:
-                    target_pods = matched
-            if not target_pods:
+            if scope:
+                from app.services.scope_engine import scope_engine
+                target_pods = scope_engine.filter_pods(pods, scope)
+            else:
                 target_pods = pods
 
+            if pod_name and pod_name != "all" and not pod_name.startswith("{"):
+                matched = [p for p in target_pods if pod_name.lower() in p.get("podName", "").lower() or pod_name.lower() in p.get("name", "").lower()]
+                if matched:
+                    target_pods = matched
+
             for p in target_pods[:8]:
-                p_name = p.get("name")
+                p_name = p.get("podName") or p.get("name")
                 ns = p.get("namespace", "devops-nexus-prod")
                 try:
-                    logs_text = pod_service.get_pod_logs(p_name, namespace=ns, tail_lines=15)
+                    logs_text = pod_service.get_pod_logs(ns, p_name, tail_lines=30, container=container)
                     if logs_text:
                         lines = logs_text.strip().split("\n")
                         for l in lines:

@@ -3,7 +3,7 @@ import { Outlet, Link, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, GitBranch, Cpu, Layers, BarChart3, 
   Terminal, AlertTriangle, Bot, Settings, Sun, Moon, Menu, X, TerminalSquare, Server,
-  Users, Shield, Grid, ShieldAlert, Search, Command
+  Users, Shield, Grid, ShieldAlert, Search, Command, ShieldCheck
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useScope, ScopeMode, InfrastructureDomain } from '../context/ScopeContext';
@@ -69,6 +69,7 @@ const DashboardLayout: React.FC = () => {
       { path: '/admin/roles', label: 'Roles', icon: Shield },
       { path: '/admin/permissions', label: 'Permissions Matrix', icon: Grid },
       { path: '/admin/audit', label: 'Audit Logs', icon: ShieldAlert },
+      { path: '/admin/verification', label: 'Verification', icon: ShieldCheck },
       { path: '/settings', label: 'Settings', icon: Settings },
     ];
   } else if (userRole === 'DevOps Engineer') {

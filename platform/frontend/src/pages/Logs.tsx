@@ -11,6 +11,7 @@ const Logs: React.FC = () => {
   const [logs, setLogs] = useState<LogLine[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
+  const [autoScroll, setAutoScroll] = useState(true);
   const [liveRefresh, setLiveRefresh] = useState(true);
   const { getScopeParams } = useScope();
   
@@ -54,10 +55,10 @@ const Logs: React.FC = () => {
 
   // Auto-scroll to latest log lines when logs update
   useEffect(() => {
-    if (terminalEndRef.current) {
+    if (autoScroll && terminalEndRef.current) {
       terminalEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [logs]);
+  }, [logs, autoScroll]);
 
   return (
     <div className="space-y-6">
@@ -102,6 +103,18 @@ const Logs: React.FC = () => {
           >
             <Eye className="h-3.5 w-3.5" />
             Live
+          </button>
+
+          {/* AutoScroll toggle */}
+          <button 
+            onClick={() => setAutoScroll(!autoScroll)}
+            disabled={podsList.length === 0}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold transition-all disabled:opacity-50 ${
+              autoScroll && podsList.length > 0 ? 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20' : 'bg-slate-500/10 text-slate-400'
+            }`}
+          >
+            <Eye className="h-3.5 w-3.5" />
+            Auto-Scroll
           </button>
 
           <button 

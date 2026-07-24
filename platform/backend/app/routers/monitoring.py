@@ -28,8 +28,7 @@ async def get_cluster_metrics(
     request_id = getattr(request.state, "request_id", None)
     try:
         scope = scope_engine.resolve_scope(scope_mode, namespace, app, domain)
-        promql_clause = scope_engine.build_promql_filter(scope)
-        data = monitoring_service.get_cluster_metrics()
+        data = monitoring_service.get_cluster_metrics(scope)
         return BaseResponse(success=True, data=data, request_id=request_id)
     except TelemetryFetchException as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
@@ -41,13 +40,14 @@ async def get_metrics_range(
     scope_mode: Optional[str] = Query("cluster"),
     namespace: Optional[str] = Query(None),
     app: Optional[str] = Query(None),
-    domain: Optional[str] = Query(None)
+    domain: Optional[str] = Query(None),
+    time_range: Optional[str] = Query("1h")
 ):
     """Retrieves metrics range data points for graphic rendering."""
     request_id = getattr(request.state, "request_id", None)
     try:
         scope = scope_engine.resolve_scope(scope_mode, namespace, app, domain)
-        data = monitoring_service.get_performance_range(metric_type)
+        data = monitoring_service.get_performance_range(metric_type, scope, time_range)
         return BaseResponse(success=True, data={"values": data}, request_id=request_id)
     except TelemetryFetchException as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
@@ -56,6 +56,7 @@ async def get_metrics_range(
 async def get_logs(
     request: Request,
     pod: Optional[str] = Query("all", description="Target pod identifier."),
+    container: Optional[str] = Query(None, description="Target container identifier."),
     search: Optional[str] = Query(None, description="Optional search keywords filter."),
     limit: int = Query(100, ge=1, le=1000, description="Log lines limit offset."),
     scope_mode: Optional[str] = Query("cluster"),
@@ -67,8 +68,7 @@ async def get_logs(
     request_id = getattr(request.state, "request_id", None)
     try:
         scope = scope_engine.resolve_scope(scope_mode, namespace, app, domain)
-        log_query_pod = pod if pod and pod != "all" else scope_engine.build_logql_filter(scope)
-        data = log_service.get_logs(log_query_pod, search=search, limit=limit)
+        data = log_service.get_logs(pod, search=search, limit=limit, scope=scope, container=container)
         return BaseResponse(success=True, data=data, request_id=request_id)
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))

@@ -51,7 +51,7 @@ export const api = {
         return response.data.data.map((ns: any) => ({
           name: ns.name,
           status: ns.status,
-          podsCount: 0,
+          podsCount: ns.pods_count || 0,
           cpuQuota: 'No Quota',
           memoryQuota: 'No Quota'
         }));
@@ -225,8 +225,8 @@ export const api = {
           name: node.name,
           status: node.status,
           role: node.role,
-          cpuAllocated: '0%',
-          memoryAllocated: '0%',
+          cpuAllocated: node.cpu_allocated || '0%',
+          memoryAllocated: node.memory_allocated || '0%',
           ipAddress: node.ip_address
         }));
       }
@@ -558,6 +558,28 @@ export const api = {
       console.warn("Failed to fetch audit logs:", e);
     }
     return [];
+  },
+
+  getVerificationMetrics: async (): Promise<any[]> => {
+    try {
+      const response = await apiClient.get('/api/v1/admin/verification');
+      if (response.data && response.data.success) {
+        return response.data.data.subsystems || response.data.data;
+      }
+    } catch (e) {
+      console.warn("Failed to fetch verification metrics:", e);
+    }
+    return [];
+  },
+
+  getGitProviderSettings: async (): Promise<any> => {
+    const response = await apiClient.get('/api/v1/admin/git-provider');
+    return response.data?.data;
+  },
+
+  saveGitProviderSettings: async (settings: any): Promise<any> => {
+    const response = await apiClient.post('/api/v1/admin/git-provider', settings);
+    return response.data?.data;
   },
 
   // --- Multi-Cluster Registry Endpoints ---

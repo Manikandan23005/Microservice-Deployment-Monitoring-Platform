@@ -58,9 +58,11 @@ class KubernetesClient:
         except Exception as e:
             raise KubernetesClientException(f"Failed to fetch events for pod {pod_name}: {str(e)}")
 
-    def get_pod_logs(self, namespace: str, name: str, tail_lines: int = 100, cluster_id: Optional[str] = None) -> str:
+    def get_pod_logs(self, namespace: str, name: str, tail_lines: int = 100, container: Optional[str] = None, cluster_id: Optional[str] = None) -> str:
         clients = self.get_clients(cluster_id)
         try:
+            if container:
+                return clients["v1"].read_namespaced_pod_log(name, namespace, tail_lines=tail_lines, container=container)
             return clients["v1"].read_namespaced_pod_log(name, namespace, tail_lines=tail_lines)
         except Exception as e:
             raise KubernetesClientException(f"Failed to fetch logs for pod {name}: {str(e)}")

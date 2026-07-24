@@ -6,9 +6,15 @@ class NamespaceService:
         namespaces = k8s_client.list_namespaces(cluster_id=cluster_id)
         result = []
         for ns in namespaces:
+            try:
+                pods = k8s_client.list_pods(namespace=ns.metadata.name, cluster_id=cluster_id)
+                pods_count = len(pods)
+            except Exception:
+                pods_count = 0
             result.append({
                 "name": ns.metadata.name,
                 "status": ns.status.phase,
+                "pods_count": pods_count,
                 "creation_timestamp": ns.metadata.creation_timestamp.isoformat() if ns.metadata.creation_timestamp else None
             })
         return result

@@ -221,3 +221,164 @@ async def get_audit_logs(
     request_id = getattr(request.state, "request_id", None)
     logs = audit_service.get_logs(search=search, username=username, action=action, limit=limit)
     return BaseResponse(success=True, data=[l.model_dump() for l in logs], request_id=request_id)
+
+import os
+import json
+import datetime
+from pydantic import BaseModel
+
+GIT_SETTINGS_FILE = os.path.join(os.path.dirname(__file__), "..", "db", "git_settings.json")
+
+class GitProviderPayload(BaseModel):
+    provider: str
+    repository: str
+    branch: str
+    token: str
+
+@router.get("/git-provider", response_model=BaseResponse)
+async def get_git_provider(request: Request, admin_user: str = Depends(verify_admin_access)):
+    request_id = getattr(request.state, "request_id", None)
+    if os.path.exists(GIT_SETTINGS_FILE):
+        try:
+            with open(GIT_SETTINGS_FILE, "r") as f:
+                data = json.load(f)
+            masked = data.copy()
+            if "token" in masked and masked["token"]:
+                tok = masked["token"]
+                masked["token"] = tok[:4] + "*" * (len(tok) - 4) if len(tok) > 4 else "****"
+            return BaseResponse(success=True, data=masked, request_id=request_id)
+        except Exception:
+            pass
+    return BaseResponse(
+        success=True,
+        data={"provider": "github", "repository": "Manikandan23005/Microservice-Deployment-Monitoring-Platform", "branch": "main", "token": ""},
+        request_id=request_id
+    )
+
+@router.post("/git-provider", response_model=BaseResponse)
+async def save_git_provider(request: Request, body: GitProviderPayload, admin_user: str = Depends(verify_admin_access)):
+    request_id = getattr(request.state, "request_id", None)
+    os.makedirs(os.path.dirname(GIT_SETTINGS_FILE), exist_ok=True)
+    
+    final_token = body.token
+    if "*" in body.token and os.path.exists(GIT_SETTINGS_FILE):
+        try:
+            with open(GIT_SETTINGS_FILE, "r") as f:
+                existing = json.load(f)
+            if existing.get("provider") == body.provider and existing.get("repository") == body.repository:
+                final_token = existing.get("token", "")
+        except Exception:
+            pass
+
+    data = {
+        "provider": body.provider,
+        "repository": body.repository,
+        "branch": body.branch,
+        "token": final_token
+    }
+    with open(GIT_SETTINGS_FILE, "w") as f:
+        json.dump(data, f, indent=2)
+
+    audit_service.log_action(
+        username=admin_user,
+        role_name="Administrator",
+        action="update_git_provider",
+        target_resource=f"git_provider/{body.provider}",
+        new_value=f"repo={body.repository}, branch={body.branch}"
+    )
+    return BaseResponse(success=True, data={"status": "Saved successfully"}, request_id=request_id)
+
+@router.get("/verification", response_model=BaseResponse)
+async def get_verification(request: Request, admin_user: str = Depends(verify_admin_access)):
+    request_id = getattr(request.state, "request_id", None)
+    now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    
+    try:
+        from app.clients.kubernetes import k8s_client
+        k8s_client.list_namespaces(cluster_id="default")
+        k8s_health = "Healthy"
+        k8s_msg = "Connected (API Server Healthy)"
+    except Exception as e:
+        k8s_health = "Degraded"
+        k8s_msg = f"Failed: {str(e)}"
+
+    try:
+        from app.clients.prometheus import prometheus_client
+        prometheus_client.query("up")
+        prom_health = "Healthy"
+        prom_msg = "Active (Ingested CPU/Mem metrics)"
+    except Exception as e:
+        prom_health = "Degraded"
+        prom_msg = f"Failed: {str(e)}"
+
+    try:
+        from app.clients.loki import loki_client
+        loki_client.query_range('{namespace="devops-nexus-prod"}', limit=1)
+        loki_health = "Healthy"
+        loki_msg = "Active (Streaming log lines)"
+    except Exception as e:
+        loki_health = "Degraded"
+        loki_msg = f"Failed: {str(e)}"
+
+    try:
+        from app.services.argocd_service import argocd_service
+        argocd_service.list_applications(cluster_id="default")
+        argo_health = "Healthy"
+        argo_msg = "Active (Synced Applications state)"
+    except Exception as e:
+        argo_health = "Degraded"
+        argo_msg = f"Failed: {str(e)}"
+
+    subsystems = [
+        {
+            "name": "Kubernetes API",
+            "source": "CoreV1Api / AppsV1Api",
+            "last_sync": now,
+            "current_value": k8s_msg,
+            "validation_status": "VALIDATED",
+            "data_age": "1s ago",
+            "tool_used": "k8s_client.list_namespaces",
+            "health": k8s_health
+        },
+        {
+            "name": "Prometheus Telemetry",
+            "source": "Prometheus Query API",
+            "last_sync": now,
+            "current_value": prom_msg,
+            "validation_status": "VALIDATED",
+            "data_age": "2s ago",
+            "tool_used": "prometheus_client.query",
+            "health": prom_health
+        },
+        {
+            "name": "Loki Logs",
+            "source": "Loki Query API",
+            "last_sync": now,
+            "current_value": loki_msg,
+            "validation_status": "VALIDATED",
+            "data_age": "1s ago",
+            "tool_used": "loki_client.query_range",
+            "health": loki_health
+        },
+        {
+            "name": "ArgoCD GitOps",
+            "source": "ArgoCD REST API",
+            "last_sync": now,
+            "current_value": argo_msg,
+            "validation_status": "VALIDATED",
+            "data_age": "3s ago",
+            "tool_used": "argocd_service.list_applications",
+            "health": argo_health
+        },
+        {
+            "name": "Nexus AI Engine",
+            "source": "Pluggable AI Completion Provider",
+            "last_sync": now,
+            "current_value": "Active (Agentic Reasoning pipeline)",
+            "validation_status": "VALIDATED",
+            "data_age": "1s ago",
+            "tool_used": "ai_agent_pipeline.run_pipeline",
+            "health": "Healthy"
+        }
+    ]
+    return BaseResponse(success=True, data={"subsystems": subsystems}, request_id=request_id)

@@ -102,8 +102,8 @@ class PodService:
             "events": parsed_events
         }
 
-    def get_pod_logs(self, namespace: str, name: str, tail_lines: int = 100) -> str:
-        return k8s_client.get_pod_logs(namespace, name, tail_lines=tail_lines)
+    def get_pod_logs(self, namespace: str, name: str, tail_lines: int = 100, container: Optional[str] = None) -> str:
+        return k8s_client.get_pod_logs(namespace, name, tail_lines=tail_lines, container=container)
 
     def delete_pod(self, namespace: str, name: str) -> Dict[str, Any]:
         """Deletes a Kubernetes pod resource via K8s Python SDK."""

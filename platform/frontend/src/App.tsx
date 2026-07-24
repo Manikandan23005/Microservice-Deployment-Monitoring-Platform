@@ -18,11 +18,11 @@ import { ScopeProvider } from './context/ScopeContext';
 import { ClusterProvider } from './context/ClusterContext';
 import { Clusters } from './pages/Clusters';
 
-// Admin EWRAM Pages
 import { UsersPage } from './pages/admin/Users';
 import { RolesPage } from './pages/admin/Roles';
 import { PermissionsMatrixPage } from './pages/admin/PermissionsMatrix';
 import { AuditLogsPage } from './pages/admin/AuditLogs';
+import { VerificationDashboardPage } from './pages/admin/VerificationDashboard';
 
 function App() {
   return (
@@ -138,6 +138,14 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['Administrator', 'Platform Engineer']}>
                 <AuditLogsPage />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="admin/verification" 
+            element={
+              <ProtectedRoute allowedRoles={['Administrator', 'Platform Engineer']}>
+                <VerificationDashboardPage />
               </ProtectedRoute>
             } 
           />

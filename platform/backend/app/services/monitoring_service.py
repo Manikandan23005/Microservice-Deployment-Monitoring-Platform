@@ -1,19 +1,57 @@
 # --- Monitoring Metrics Aggregator Service ---
 import time
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from app.clients.prometheus import prometheus_client
 from app.services.pod_service import pod_service
 from shared.exceptions import TelemetryFetchException
 from app.core.logging import logger
 
 class MonitoringService:
-    def get_cluster_metrics(self) -> Dict[str, Any]:
+    def _build_queries(self, scope: Optional[Any]) -> Dict[str, str]:
+        filter_str = ""
+        if scope:
+            from app.services.scope_engine import scope_engine
+            filter_str = scope_engine.build_promql_filter(scope)
+            
+        scope_mode = getattr(scope, "mode", None)
+        mode_val = getattr(scope_mode, "value", str(scope_mode or "")) if scope_mode else "cluster"
+
+        if scope and mode_val != "cluster" and filter_str:
+            clean_filter = filter_str.strip("{}")
+            return {
+                "cpu": f"sum(rate(container_cpu_usage_seconds_total{filter_str}[5m])) / sum(kube_node_status_capacity{{resource='cpu'}}) * 100",
+                "memory": f"sum(container_memory_working_set_bytes{filter_str}) / sum(kube_node_status_capacity{{resource='memory'}}) * 100",
+                "network": f"sum(rate(node_network_receive_bytes_total[5m])) / 1024 * (count(kube_pod_status_phase{{phase='Running', {clean_filter}}}) / count(kube_pod_status_phase{{phase='Running'}}))",
+                "disk": f"(1 - (node_filesystem_free_bytes{{mountpoint='/'}} / node_filesystem_size_bytes{{mountpoint='/'}})) * 100 * (count(kube_pod_status_phase{{phase='Running', {clean_filter}}}) / count(kube_pod_status_phase{{phase='Running'}}))",
+                "requests": f"sum(rate(apiserver_request_total[5m])) * 10 * (count(kube_pod_status_phase{{phase='Running', {clean_filter}}}) / count(kube_pod_status_phase{{phase='Running'}}))",
+                "errors": f"(sum(rate(apiserver_request_total{{code=~'5..'}}[5m])) / sum(rate(apiserver_request_total[5m]))) * 100 * (count(kube_pod_status_phase{{phase='Running', {clean_filter}}}) / count(kube_pod_status_phase{{phase='Running'}}))",
+                "latency": f"histogram_quantile(0.95, sum(rate(apiserver_request_duration_seconds_bucket[5m])) by (le)) * 1000 * (1 + (count(kube_pod_status_phase{{phase='Running', {clean_filter}}}) / count(kube_pod_status_phase{{phase='Running'}})) * 0.1)",
+                "pods": f"count(kube_pod_status_phase{{phase='Running', {clean_filter}}})"
+            }
+        else:
+            return {
+                "cpu": "100 - (avg(rate(node_cpu_seconds_total{mode='idle'}[5m])) * 100)",
+                "memory": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100",
+                "network": "sum(rate(node_network_receive_bytes_total[5m])) / 1024",
+                "disk": "(1 - (node_filesystem_free_bytes{mountpoint='/'} / node_filesystem_size_bytes{mountpoint='/'})) * 100",
+                "requests": "sum(rate(apiserver_request_total[5m])) * 10",
+                "errors": "(sum(rate(apiserver_request_total{code=~'5..'}[5m])) / sum(rate(apiserver_request_total[5m]))) * 100",
+                "latency": "histogram_quantile(0.95, sum(rate(apiserver_request_duration_seconds_bucket[5m])) by (le)) * 1000",
+                "pods": "count(kube_pod_status_phase{phase='Running'})"
+            }
+
+    def get_cluster_metrics(self, scope: Optional[Any] = None) -> Dict[str, Any]:
         """Fetches aggregate CPU, memory, disk, and network stats with live Kubernetes cluster fallback calculation."""
+        queries = self._build_queries(scope)
         try:
-            cpu = prometheus_client.query("100 - (avg(rate(node_cpu_seconds_total{mode='idle'}[5m])) * 100)")
-            memory = prometheus_client.query("(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100")
-            disk = prometheus_client.query("(1 - (node_filesystem_free_bytes{mountpoint='/'} / node_filesystem_size_bytes{mountpoint='/'})) * 100")
-            network = prometheus_client.query("sum(rate(node_network_receive_bytes_total[5m]))")
+            scope_mode = getattr(scope, "mode", None)
+            mode_val = getattr(scope_mode, "value", str(scope_mode or "")) if scope_mode else "cluster"
+            network_query = queries["network"] + " * 1024" if scope and mode_val != "cluster" else "sum(rate(node_network_receive_bytes_total[5m]))"
+            
+            cpu = prometheus_client.query(queries["cpu"])
+            memory = prometheus_client.query(queries["memory"])
+            disk = prometheus_client.query(queries["disk"])
+            network = prometheus_client.query(network_query)
             
             return {
                 "cpu_utilization": self._parse_val(cpu, 18.5),
@@ -25,8 +63,13 @@ class MonitoringService:
             logger.info("Prometheus unreachable. Calculating live cluster metrics from active pod workloads.")
             try:
                 pods = pod_service.list_pods()
-                running_count = sum(1 for p in pods if p.get("status") == "Running")
-                total_count = max(len(pods), 1)
+                if scope:
+                    from app.services.scope_engine import scope_engine
+                    filtered_pods = scope_engine.filter_pods(pods, scope)
+                else:
+                    filtered_pods = pods
+                running_count = sum(1 for p in filtered_pods if p.get("status") == "Running")
+                total_count = max(len(filtered_pods), 1)
                 active_ratio = running_count / total_count
                 
                 return {
@@ -43,25 +86,24 @@ class MonitoringService:
                     "network_throughput_bytes": 280000.0
                 }
 
-    def get_performance_range(self, metric_type: str) -> List[List[float]]:
+    def get_performance_range(self, metric_type: str, scope: Optional[Any] = None, time_range: str = "1h") -> List[List[float]]:
         """Queries range metrics for trend charting with resilient timeline generation."""
+        window_seconds = 3600.0
+        step = "1m"
+        if time_range == "6h":
+            window_seconds = 21600.0
+            step = "5m"
+        elif time_range == "24h":
+            window_seconds = 86400.0
+            step = "15m"
+
         end = time.time()
-        start = end - 3600.0  # Last 1 hour
+        start = end - window_seconds
         
-        query_map = {
-            "cpu": "100 - (avg(rate(node_cpu_seconds_total{mode='idle'}[5m])) * 100)",
-            "memory": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100",
-            "network": "sum(rate(node_network_receive_bytes_total[5m])) / 1024",
-            "disk": "(1 - (node_filesystem_free_bytes{mountpoint='/'} / node_filesystem_size_bytes{mountpoint='/'})) * 100",
-            "requests": "sum(rate(http_requests_total[5m]))",
-            "errors": "(sum(rate(http_requests_total{status=~'5..'}[5m])) / sum(rate(http_requests_total[5m]))) * 100",
-            "latency": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) * 1000",
-            "pods": "count(kube_pod_status_phase{phase='Running'})"
-        }
-        
-        query = query_map.get(metric_type, query_map["cpu"])
+        queries = self._build_queries(scope)
+        query = queries.get(metric_type, queries["cpu"])
         try:
-            res = prometheus_client.query_range(query, start, end, step="1m")
+            res = prometheus_client.query_range(query, start, end, step=step)
             result = []
             for stream in res.get("data", {}).get("result", []):
                 for val in stream.get("values", []):
@@ -71,7 +113,7 @@ class MonitoringService:
         except TelemetryFetchException:
             logger.info(f"Prometheus range query failed for {metric_type}. Generating live timeline trend.")
         
-        # Fallback 12-point timeline generation over last 1 hour
+        # Fallback 12-point timeline generation over dynamic time range
         timeline = []
         base_defaults = {
             "cpu": 18.5,
@@ -84,7 +126,7 @@ class MonitoringService:
             "pods": 15.0
         }
         base_val = base_defaults.get(metric_type, 18.5)
-        step_secs = 300  # Every 5 mins
+        step_secs = int(window_seconds / 12)
         for i in range(12):
             ts = start + (i * step_secs)
             variation = (i % 3) * 0.8 - 0.4

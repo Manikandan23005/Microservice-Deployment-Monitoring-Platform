@@ -12,7 +12,7 @@ ENV PATH="$POETRY_HOME/bin:$PATH"
 WORKDIR /app
 
 RUN apt-get update \
-    && apt-get install --no-install-recommends -y curl build-essential \
+    && apt-get install --no-install-recommends -y curl build-essential git \
     && curl -sSL https://install.python-poetry.org | python3 -
 
 COPY pyproject.toml poetry.lock* ./
@@ -25,6 +25,10 @@ RUN poetry install --only main --no-root
 # --- Runtime Stage ---
 FROM python:3.13-slim AS runner
 WORKDIR /app
+
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y git \
+    && rm -rf /var/lib/apt/lists/*
 
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONPATH="/app/platform:/app"

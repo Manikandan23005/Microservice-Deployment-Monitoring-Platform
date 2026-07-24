@@ -25,7 +25,7 @@ const Metrics: React.FC = () => {
 
   const fetchAllMetrics = async () => {
     try {
-      const scope = getScopeParams();
+      const scope = { ...getScopeParams(), time_range: timeRange };
       const [
         cpu, mem, net, disk, reqs, errs, lat, pods, stats
       ] = await Promise.all([
@@ -55,7 +55,7 @@ const Metrics: React.FC = () => {
     fetchAllMetrics();
     const interval = setInterval(fetchAllMetrics, 5000);
     return () => clearInterval(interval);
-  }, [JSON.stringify(getScopeParams())]);
+  }, [JSON.stringify(getScopeParams()), timeRange]);
 
   const chartConfigs: MetricChartConfig[] = [
     {
