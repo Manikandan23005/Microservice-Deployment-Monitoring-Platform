@@ -1,47 +1,34 @@
-# 🔀 DevOps Nexus v1.0 — CI/CD & GitOps Control Plane
+# GitOps Control Plane & Continuous Delivery Guide
 
-This document details the **GitOps Control Plane** and **CI/CD pipeline integration** in **DevOps Nexus v1.0**.
+## Overview
+
+DevOps Nexus implements an Enterprise GitOps Control Plane. Infrastructure changes (such as scaling replica counts or modifying configurations) are written to Git repositories and reconciled declaratively via ArgoCD.
 
 ---
 
-## 🟢 1. GitOps Detection & Synchronization
+## 🔄 12-Stage GitOps Write-Back Pipeline
 
-DevOps Nexus automatically inspects every Kubernetes Deployment and Pod to determine its management model:
-
+```mermaid
+flowchart TD
+    A["1. Scale / Descale Action"] --> B["2. GitOps Ownership Check"]
+    B --> C["3. Local Git Repo Resolution"]
+    C --> D["4. Helm Values Manifest Discovery"]
+    D --> E["5. Replica & HPA Modification"]
+    E --> F["6. YAML Format Validation"]
+    F --> G["7. Git Commit"]
+    G --> H["8. Git Push to Remote"]
+    H --> I["9. ArgoCD Cache Refresh"]
+    I --> J["10. ArgoCD Cluster Sync"]
+    J --> K["11. Rollout Reconciliation Check"]
+    K --> L["12. UI Dashboard Refresh"]
 ```
-                            [ Workload Analysis ]
-                                      |
-                +---------------------+---------------------+
-                |                                           |
-         ArgoCD Metadata Present?                  No ArgoCD Metadata
-        (app.kubernetes.io/instance)                        |
-                |                                           v
-                v                                ⚪ Kubernetes Managed
-      🟢 GitOps Managed                              - Direct K8s Lifecycle
-      - ArgoCD Application Sync                      - Scale / Restart / Delete
-      - Revision History Logs
-      - Guardrail Enforcement
-```
 
 ---
 
-## 🔄 2. GitHub Actions CI/CD Pipeline
+## 🛠️ Key Operations
 
-The repository includes GitHub Actions workflows in `.github/workflows/`:
-1. **Automated Testing**: Runs Pytest backend suite and Vite frontend build checks on every pull request.
-2. **Container Image Building**: Multi-stage Docker builds for platform services and microservices.
-3. **GitOps Repository Synchronization**: Triggers ArgoCD sync on main branch commits.
-
----
-
-## 🛠️ 3. Operational Guardrails
-
-- **GitOps Lock**: Workloads marked as `🟢 GitOps Managed` are protected against accidental permanent deletion.
-- **GitOps Disconnect**: Administrators can disconnect workloads from ArgoCD control via `DisconnectGitOpsModal.tsx` to unlock standard K8s operations.
-
----
-
-## 🔗 Related Documentation
-- 🏗️ [03-system-architecture.md](03-system-architecture.md) — System architecture
-- 🔀 [13-gitops-cluster-registry.md](13-gitops-cluster-registry.md) — Cluster registry & ArgoCD details
-- 🛡️ [12-rbac-security.md](12-rbac-security.md) — Guardrails & RBAC
+### Scaling Workloads
+1. Navigate to **Deployments** page on the dashboard.
+2. Click **Scale** on a GitOps-managed deployment (e.g. `auth-service`).
+3. Select target replica count and confirm.
+4. The platform executes the 12-stage write-back pipeline, updating `helm/auth/values-prod.yaml`, committing to Git, pushing to GitHub origin, and triggering ArgoCD synchronization.

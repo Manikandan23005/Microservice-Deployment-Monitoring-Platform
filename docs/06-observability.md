@@ -1,39 +1,36 @@
-# 📊 DevOps Nexus v1.0 — Observability Platform Guide
+# Observability & Telemetry Integration Guide
 
-This document details the telemetry metrics dashboard, Grafana integration, and Loki log aggregator pipeline in **DevOps Nexus v1.0**.
+## Overview
 
----
-
-## 📈 1. Telemetry Metrics Dashboard (`Metrics.tsx`)
-
-DevOps Nexus provides a Grafana-grade telemetry suite rendering 8 live performance metrics:
-
-1. **CPU Usage**: `100 - (avg(rate(node_cpu_seconds_total{mode='idle'}[5m])) * 100)`
-2. **Memory Usage**: `(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100`
-3. **Network I/O**: `sum(rate(node_network_receive_bytes_total[5m])) / 1024`
-4. **Disk Usage**: `(1 - (node_filesystem_free_bytes{mountpoint='/'} / node_filesystem_size_bytes{mountpoint='/'})) * 100`
-5. **Request Rate**: `sum(rate(http_requests_total[5m]))`
-6. **Error Rate**: `(sum(rate(http_requests_total{status=~'5..'}[5m])) / sum(rate(http_requests_total[5m]))) * 100`
-7. **P95 Latency**: `histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) * 1000`
-8. **Running Pods Count**: `count(kube_pod_status_phase{phase='Running'})`
+The observability stack in DevOps Nexus aggregates metrics, container log streams, and Kubernetes cluster events into real-time visual dashboards and AI diagnostic context.
 
 ---
 
-## 📜 2. Dual-Source Log Aggregation (`Logs.tsx`)
+## 📊 Telemetry Data Flow
 
-Log inspection uses a resilient dual-source pipeline:
-- **Primary Source (Grafana Loki)**: Queries LogQL selectors (`{namespace=~"..."}`) via `app/clients/loki.py` with multi-tenancy `X-Scope-OrgID: fake` header.
-- **Fallback Source (Kubernetes API)**: If Loki has no log streams for a specific pod, DevOps Nexus automatically falls back to live `pod_service.get_pod_logs`.
+```mermaid
+graph TD
+    Pod["📦 Kubernetes Pods"] -->|Scrape Metrics| Prom["📊 Prometheus (9090)"]
+    Pod -->|Container stdout/stderr| Loki["📝 Loki (9100)"]
+    Pod -->|Lifecycle Events| K8sEvents["📢 K8s API Events"]
+
+    Prom --> PromClient["Prometheus Client"]
+    Loki --> LokiClient["Loki Client"]
+    K8sEvents --> EventCollector["Event Collector"]
+
+    PromClient --> Dashboard["🎨 Monitoring Dashboard"]
+    LokiClient --> Dashboard
+    EventCollector --> Dashboard
+
+    PromClient --> AIEngine["🧠 Autonomous AIOps Engine"]
+    LokiClient --> AIEngine
+    EventCollector --> AIEngine
+```
 
 ---
 
-## 🔔 3. AlertManager Integration (`Alerts.tsx`)
+## 🛡️ Zero-Degraded Fail-Safe Guarantee
 
-DevOps Nexus queries active Prometheus AlertManager firing alerts via `/api/v1/monitoring/alerts` and synthesizes cluster workload warning badges.
-
----
-
-## 🔗 Related Documentation
-- 🏗️ [03-system-architecture.md](03-system-architecture.md) — System architecture
-- 🧠 [07-nexus-ai.md](07-nexus-ai.md) — Nexus AI investigation engine
-- 🔌 [11-api-reference.md](11-api-reference.md) — Telemetry API reference
+1. **Continuous Port Supervisor Daemon**: Checks ports 9090 (Prometheus), 3100 (Loki), and 8082 (Grafana) every 3 seconds and auto-heals dropped port-forwards.
+2. **K8s API Metric Synthesis**: If Prometheus is offline, `prometheus_client` synthesizes metrics vector/matrix JSON directly from live Kubernetes pod and node states.
+3. **K8s Log Stream Synthesis**: If Loki is offline, `loki_client` queries live container logs via `read_namespaced_pod_log` and returns valid stream structures.
